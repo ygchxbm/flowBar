@@ -1,0 +1,54 @@
+import Foundation
+import IOKit.ps
+
+final class IOKitBatteryProvider: BatteryInfoProviding {
+    func batteryInfo() -> [String: Any] {
+        guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef] else {
+            return [:]
+        }
+
+        for source in sources {
+            guard let description = IOPSGetPowerSourceDescription(snapshot, source)?
+                .takeUnretainedValue() as? [String: Any],
+                description[kIOPSTypeKey] as? String == kIOPSInternalBatteryType else {
+                continue
+            }
+            return Self.normalized(description)
+        }
+
+        return [:]
+    }
+
+    static func normalized(_ description: [String: Any]) -> [String: Any] {
+        var values = description
+
+        if let current = description["Current"] {
+            values["Amperage"] = current
+        }
+        if let currentCapacity = description["Current Capacity"] {
+            values["CurrentCapacity"] = currentCapacity
+        }
+        if let isCharging = description["Is Charging"] {
+            values["IsCharging"] = isCharging
+        }
+        if let isCharged = description["Is Charged"] {
+            values["IsCharged"] = isCharged
+        }
+        if let temperature = doubleValue(description["Temperature"]) {
+            values["TemperatureCelsius"] = BatteryMonitor.normalizedTemperatureCelsius(temperature)
+        }
+
+        return values
+    }
+
+    private static func doubleValue(_ value: Any?) -> Double? {
+        if let value = value as? Double { return value }
+        if let value = value as? Float { return Double(value) }
+        if let value = value as? Int { return Double(value) }
+        if let value = value as? Int32 { return Double(value) }
+        if let value = value as? Int64 { return Double(value) }
+        if let value = value as? NSNumber { return value.doubleValue }
+        return nil
+    }
+}
