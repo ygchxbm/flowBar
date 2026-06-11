@@ -10,7 +10,7 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 
 cd "$ROOT_DIR"
 
-swift build -c "$CONFIGURATION"
+swift build --disable-sandbox -c "$CONFIGURATION" -debug-info-format none
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR"

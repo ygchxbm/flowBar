@@ -24,7 +24,7 @@ final class SystemNetworkInterfaceProvider: NetworkInterfaceProviding {
             if interface.ifa_addr?.pointee.sa_family == UInt8(AF_LINK),
                let data = interface.ifa_data,
                let namePointer = interface.ifa_name {
-                let dataPointer = data.bindMemory(to: if_data64.self, capacity: 1)
+                let dataPointer = data.bindMemory(to: if_data.self, capacity: 1)
                 let receivedBytes = UInt64(dataPointer.pointee.ifi_ibytes)
                 let name = String(cString: namePointer)
 

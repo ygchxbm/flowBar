@@ -1,8 +1,13 @@
 import Foundation
+import IOKit
 import IOKit.ps
 
 final class IOKitBatteryProvider: BatteryInfoProviding {
     func batteryInfo() -> [String: Any] {
+        if let smartBatteryInfo = appleSmartBatteryInfo() {
+            return Self.normalized(smartBatteryInfo)
+        }
+
         guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
               let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef] else {
             return [:]
@@ -18,6 +23,23 @@ final class IOKitBatteryProvider: BatteryInfoProviding {
         }
 
         return [:]
+    }
+
+    private func appleSmartBatteryInfo() -> [String: Any]? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+        guard service != 0 else {
+            return nil
+        }
+        defer { IOObjectRelease(service) }
+
+        var properties: Unmanaged<CFMutableDictionary>?
+        let result = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0)
+        guard result == KERN_SUCCESS,
+              let dictionary = properties?.takeRetainedValue() as? [String: Any] else {
+            return nil
+        }
+
+        return dictionary
     }
 
     static func normalized(_ description: [String: Any]) -> [String: Any] {

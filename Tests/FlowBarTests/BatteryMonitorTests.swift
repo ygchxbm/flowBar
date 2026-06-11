@@ -13,8 +13,8 @@ final class BatteryMonitorTests: XCTestCase {
 
         let snapshot = monitor.snapshot()
 
-        XCTAssertEqual(snapshot.temperatureCelsius, 30.42, accuracy: 0.001)
-        XCTAssertEqual(snapshot.chargingWatts, 18.0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(snapshot.temperatureCelsius), 30.42, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(snapshot.chargingWatts), 18.0, accuracy: 0.001)
         XCTAssertEqual(snapshot.levelPercent, 83)
         XCTAssertEqual(snapshot.powerState, .charging)
     }
@@ -29,7 +29,7 @@ final class BatteryMonitorTests: XCTestCase {
 
         let snapshot = monitor.snapshot()
 
-        XCTAssertEqual(snapshot.chargingWatts, -6.0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(snapshot.chargingWatts), -6.0, accuracy: 0.001)
         XCTAssertEqual(snapshot.levelPercent, 66)
         XCTAssertEqual(snapshot.powerState, .discharging)
     }
@@ -51,8 +51,8 @@ final class BatteryMonitorTests: XCTestCase {
 
         let snapshot = monitor.snapshot()
 
-        XCTAssertEqual(snapshot.temperatureCelsius, 30.5, accuracy: 0.001)
-        XCTAssertEqual(snapshot.chargingWatts, 18.0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(snapshot.temperatureCelsius), 30.5, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(snapshot.chargingWatts), 18.0, accuracy: 0.001)
         XCTAssertEqual(snapshot.levelPercent, 91)
         XCTAssertEqual(snapshot.powerState, .charging)
     }
@@ -87,7 +87,7 @@ final class BatteryMonitorTests: XCTestCase {
             "Temperature": 3042
         ])
 
-        XCTAssertEqual(values["TemperatureCelsius"] as? Double, 30.42, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(values["TemperatureCelsius"] as? Double), 30.42, accuracy: 0.001)
     }
 
     func testProviderKeepsCelsiusTemperatureAsCelsius() {
@@ -95,7 +95,7 @@ final class BatteryMonitorTests: XCTestCase {
             "Temperature": 30.5
         ])
 
-        XCTAssertEqual(values["TemperatureCelsius"] as? Double, 30.5, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(values["TemperatureCelsius"] as? Double), 30.5, accuracy: 0.001)
     }
 }
 

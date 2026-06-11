@@ -12,7 +12,7 @@ final class MetricsSamplerTests: XCTestCase {
         )
         let sampler = MetricsSampler(
             networkSpeed: FakeNetworkSpeedSampler(speed: 1_024),
-            battery: FakeBatterySampler(snapshot: batterySnapshot)
+            battery: FakeBatterySampler(value: batterySnapshot)
         )
 
         let snapshot = sampler.snapshot(now: Date(timeIntervalSince1970: 42))
@@ -24,7 +24,7 @@ final class MetricsSamplerTests: XCTestCase {
     func testSnapshotAllowsUnavailableNetworkSpeed() {
         let sampler = MetricsSampler(
             networkSpeed: FakeNetworkSpeedSampler(speed: nil),
-            battery: FakeBatterySampler(snapshot: .unavailable)
+            battery: FakeBatterySampler(value: .unavailable)
         )
 
         let snapshot = sampler.snapshot(now: Date(timeIntervalSince1970: 42))
@@ -43,9 +43,9 @@ private struct FakeNetworkSpeedSampler: NetworkSpeedSampling {
 }
 
 private struct FakeBatterySampler: BatterySampling {
-    var snapshot: BatterySnapshot
+    var value: BatterySnapshot
 
     func snapshot() -> BatterySnapshot {
-        snapshot
+        value
     }
 }
