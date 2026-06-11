@@ -2,7 +2,7 @@ import XCTest
 @testable import FlowBar
 
 final class BatteryMonitorTests: XCTestCase {
-    func testCalculatesChargingWattsFromMillivoltsAndMilliamps() {
+    func testCalculatesBatteryFieldsFromAppleSmartBatteryValues() {
         let monitor = BatteryMonitor(provider: FakeBatteryProvider(values: [
             "Temperature": 3042,
             "Voltage": 12000,
@@ -13,7 +13,7 @@ final class BatteryMonitorTests: XCTestCase {
 
         let snapshot = monitor.snapshot()
 
-        XCTAssertEqual(try XCTUnwrap(snapshot.temperatureCelsius), 30.42, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(snapshot.temperatureCelsius), 31.05, accuracy: 0.001)
         XCTAssertEqual(try XCTUnwrap(snapshot.chargingWatts), 18.0, accuracy: 0.001)
         XCTAssertEqual(snapshot.levelPercent, 83)
         XCTAssertEqual(snapshot.powerState, .charging)
@@ -69,6 +69,19 @@ final class BatteryMonitorTests: XCTestCase {
         XCTAssertEqual(monitor.snapshot().powerState, .full)
     }
 
+    func testExternalPowerWithoutChargingIsNotDischarging() {
+        let monitor = BatteryMonitor(provider: FakeBatteryProvider(values: [
+            "Voltage": 12590,
+            "Amperage": 0,
+            "CurrentCapacity": 80,
+            "IsCharging": false,
+            "FullyCharged": false,
+            "ExternalConnected": true
+        ]))
+
+        XCTAssertEqual(monitor.snapshot().powerState, .externalPower)
+    }
+
     func testPartialDictionaryKeepsMissingFieldsNil() {
         let monitor = BatteryMonitor(provider: FakeBatteryProvider(values: [
             "CurrentCapacity": 44
@@ -82,12 +95,12 @@ final class BatteryMonitorTests: XCTestCase {
         XCTAssertEqual(snapshot.powerState, .unknown)
     }
 
-    func testProviderNormalizesCentiCelsiusTemperature() {
+    func testProviderNormalizesAppleSmartBatteryTemperatureFromDeciKelvin() {
         let values = IOKitBatteryProvider.normalized([
-            "Temperature": 3042
+            "Temperature": 3104
         ])
 
-        XCTAssertEqual(try XCTUnwrap(values["TemperatureCelsius"] as? Double), 30.42, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(values["TemperatureCelsius"] as? Double), 37.25, accuracy: 0.001)
     }
 
     func testProviderKeepsCelsiusTemperatureAsCelsius() {

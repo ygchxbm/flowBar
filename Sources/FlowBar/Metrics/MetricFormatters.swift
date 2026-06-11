@@ -38,9 +38,10 @@ enum MetricFormatters {
 
     static func powerState(_ state: BatterySnapshot.PowerState) -> String {
         switch state {
-        case .charging: return "Charging"
-        case .discharging: return "Discharging"
-        case .full: return "Full"
+        case .charging: return "充电中"
+        case .externalPower: return "接入电源"
+        case .discharging: return "使用电池"
+        case .full: return "已充满"
         case .unknown: return "--"
         }
     }

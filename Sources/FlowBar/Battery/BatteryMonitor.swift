@@ -24,12 +24,18 @@ final class BatteryMonitor {
         let level = firstIntValue(in: values, keys: ["CurrentCapacity", "Current Capacity"])
         let isCharging = firstBoolValue(in: values, keys: ["IsCharging", "Is Charging"])
         let isFull = firstBoolValue(in: values, keys: ["IsCharged", "Is Charged", "FullyCharged"])
+        let externalConnected = firstBoolValue(in: values, keys: ["ExternalConnected", "AppleRawExternalConnected"])
 
         return BatterySnapshot(
             temperatureCelsius: temperature,
             chargingWatts: watts,
             levelPercent: level,
-            powerState: powerState(isCharging: isCharging, isFull: isFull, watts: watts)
+            powerState: powerState(
+                isCharging: isCharging,
+                isFull: isFull,
+                externalConnected: externalConnected,
+                watts: watts
+            )
         )
     }
 
@@ -40,12 +46,20 @@ final class BatteryMonitor {
         return (Double(voltageMillivolts) / 1000.0) * (Double(amperageMilliamps) / 1000.0)
     }
 
-    private func powerState(isCharging: Bool?, isFull: Bool?, watts: Double?) -> BatterySnapshot.PowerState {
+    private func powerState(
+        isCharging: Bool?,
+        isFull: Bool?,
+        externalConnected: Bool?,
+        watts: Double?
+    ) -> BatterySnapshot.PowerState {
         if isFull == true {
             return .full
         }
         if isCharging == true {
             return .charging
+        }
+        if externalConnected == true {
+            return .externalPower
         }
         if isCharging == false {
             return .discharging
@@ -73,8 +87,8 @@ final class BatteryMonitor {
     }
 
     static func normalizedTemperatureCelsius(_ temperature: Double) -> Double {
-        if abs(temperature) > 200 {
-            return temperature / 100.0
+        if abs(temperature) > 1000 {
+            return (temperature / 10.0) - 273.15
         }
         return temperature
     }

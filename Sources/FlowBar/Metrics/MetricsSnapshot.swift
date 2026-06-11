@@ -13,6 +13,7 @@ struct MetricsSnapshot: Equatable {
 struct BatterySnapshot: Equatable {
     enum PowerState: Equatable {
         case charging
+        case externalPower
         case discharging
         case full
         case unknown

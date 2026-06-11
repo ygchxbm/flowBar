@@ -1,12 +1,22 @@
 import AppKit
 
+private final class HandCursorButton: NSButton {
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+}
+
 final class BatteryPopoverViewController: NSViewController {
+    static let cornerRadius: CGFloat = 20
+
     private let downloadValueLabel = NSTextField.label(value: "--")
     private let temperatureValueLabel = NSTextField.label(value: "--")
     private let powerValueLabel = NSTextField.label(value: "--")
     private let batteryValueLabel = NSTextField.label(value: "--")
     private let stateValueLabel = NSTextField.label(value: "--")
     private let launchAtLoginSwitch = NSSwitch()
+    private let quitButton = HandCursorButton(title: "退出 FlowBar", target: nil, action: nil)
     private let launchAtLoginController: LaunchAtLoginController
 
     init(launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController()) {
@@ -20,7 +30,7 @@ final class BatteryPopoverViewController: NSViewController {
     }
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 190))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 160, height: 200))
         view.translatesAutoresizingMaskIntoConstraints = false
 
         let contentStack = NSStackView()
@@ -37,13 +47,20 @@ final class BatteryPopoverViewController: NSViewController {
         launchAtLoginSwitch.action = #selector(launchAtLoginChanged(_:))
         launchAtLoginSwitch.state = launchAtLoginController.isEnabled ? .on : .off
 
-        contentStack.addArrangedSubview(Self.row(title: "Download", valueLabel: downloadValueLabel))
-        contentStack.addArrangedSubview(Self.row(title: "Battery Temp", valueLabel: temperatureValueLabel))
-        contentStack.addArrangedSubview(Self.row(title: "Power", valueLabel: powerValueLabel))
-        contentStack.addArrangedSubview(Self.row(title: "Battery", valueLabel: batteryValueLabel))
-        contentStack.addArrangedSubview(Self.row(title: "State", valueLabel: stateValueLabel))
+        quitButton.bezelStyle = .rounded
+        quitButton.controlSize = .large
+        quitButton.target = self
+        quitButton.action = #selector(quitApp)
+        quitButton.translatesAutoresizingMaskIntoConstraints = false
+
+        contentStack.addArrangedSubview(Self.row(title: "下载速度", valueLabel: downloadValueLabel))
+        contentStack.addArrangedSubview(Self.row(title: "电池温度", valueLabel: temperatureValueLabel))
+        contentStack.addArrangedSubview(Self.row(title: "充电功率", valueLabel: powerValueLabel))
+        contentStack.addArrangedSubview(Self.row(title: "电池电量", valueLabel: batteryValueLabel))
+        contentStack.addArrangedSubview(Self.row(title: "电源状态", valueLabel: stateValueLabel))
         contentStack.addArrangedSubview(separator)
-        contentStack.addArrangedSubview(Self.row(title: "Launch at Login", control: launchAtLoginSwitch))
+        contentStack.addArrangedSubview(Self.row(title: "登录时启动", control: launchAtLoginSwitch))
+        contentStack.addArrangedSubview(quitButton)
 
         view.addSubview(contentStack)
 
@@ -52,7 +69,9 @@ final class BatteryPopoverViewController: NSViewController {
             contentStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             contentStack.topAnchor.constraint(equalTo: view.topAnchor, constant: 14),
             contentStack.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -14),
-            separator.widthAnchor.constraint(equalTo: contentStack.widthAnchor)
+            separator.widthAnchor.constraint(equalTo: contentStack.widthAnchor),
+            quitButton.widthAnchor.constraint(equalTo: contentStack.widthAnchor),
+            quitButton.heightAnchor.constraint(equalToConstant: 40)
         ])
     }
 
@@ -68,6 +87,10 @@ final class BatteryPopoverViewController: NSViewController {
     @objc private func launchAtLoginChanged(_ sender: NSSwitch) {
         launchAtLoginController.setEnabled(sender.state == .on)
         sender.state = launchAtLoginController.isEnabled ? .on : .off
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
     }
 
     private static func row(title: String, valueLabel: NSTextField) -> NSView {

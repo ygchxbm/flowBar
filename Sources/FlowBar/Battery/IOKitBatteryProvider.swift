@@ -57,6 +57,9 @@ final class IOKitBatteryProvider: BatteryInfoProviding {
         if let isCharged = description["Is Charged"] {
             values["IsCharged"] = isCharged
         }
+        if let powerSourceState = description[kIOPSPowerSourceStateKey] as? String {
+            values["ExternalConnected"] = powerSourceState == kIOPSACPowerValue
+        }
         if let temperature = doubleValue(description["Temperature"]) {
             values["TemperatureCelsius"] = BatteryMonitor.normalizedTemperatureCelsius(temperature)
         }

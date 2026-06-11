@@ -35,9 +35,10 @@ final class MetricFormattersTests: XCTestCase {
     }
 
     func testPowerStateFormatting() {
-        XCTAssertEqual(MetricFormatters.powerState(.charging), "Charging")
-        XCTAssertEqual(MetricFormatters.powerState(.discharging), "Discharging")
-        XCTAssertEqual(MetricFormatters.powerState(.full), "Full")
+        XCTAssertEqual(MetricFormatters.powerState(.charging), "充电中")
+        XCTAssertEqual(MetricFormatters.powerState(.externalPower), "接入电源")
+        XCTAssertEqual(MetricFormatters.powerState(.discharging), "使用电池")
+        XCTAssertEqual(MetricFormatters.powerState(.full), "已充满")
         XCTAssertEqual(MetricFormatters.powerState(.unknown), "--")
     }
 }
