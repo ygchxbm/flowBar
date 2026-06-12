@@ -291,6 +291,10 @@ private struct CursorTrackingView: NSViewRepresentable {
 }
 
 private final class CursorView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return nil
+    }
+
     override func resetCursorRects() {
         super.resetCursorRects()
         addCursorRect(bounds, cursor: .pointingHand)
