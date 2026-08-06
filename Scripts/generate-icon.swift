@@ -1,13 +1,17 @@
 #!/usr/bin/env swift
 
 import AppKit
-import CoreGraphics
 import Foundation
 
 let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+let sourceURL = rootURL.appendingPathComponent("Resources/FlowBarIcon.png")
 let buildURL = rootURL.appendingPathComponent(".build", isDirectory: true)
 let iconsetURL = buildURL.appendingPathComponent("FlowBarIcon.iconset", isDirectory: true)
 let outputURL = rootURL.appendingPathComponent("Resources/FlowBarIcon.icns")
+
+guard let sourceImage = NSImage(contentsOf: sourceURL) else {
+    fatalError("Unable to load app icon source at \(sourceURL.path)")
+}
 
 try FileManager.default.createDirectory(at: buildURL, withIntermediateDirectories: true)
 try? FileManager.default.removeItem(at: iconsetURL)
@@ -27,18 +31,18 @@ let iconFiles: [(name: String, pixels: CGFloat)] = [
 ]
 
 for iconFile in iconFiles {
-    let image = NSImage(size: NSSize(width: iconFile.pixels, height: iconFile.pixels))
+    let size = NSSize(width: iconFile.pixels, height: iconFile.pixels)
+    let image = NSImage(size: size)
     image.lockFocus()
-
-    guard let context = NSGraphicsContext.current?.cgContext else {
-        fatalError("Unable to create graphics context")
-    }
-
-    context.interpolationQuality = .high
-    context.translateBy(x: 0, y: iconFile.pixels)
-    context.scaleBy(x: iconFile.pixels / 1024, y: -iconFile.pixels / 1024)
-    drawIcon(in: context)
-
+    NSGraphicsContext.current?.imageInterpolation = .high
+    let bounds = NSRect(origin: .zero, size: size)
+    NSGraphicsContext.current?.cgContext.clear(bounds)
+    NSBezierPath(
+        roundedRect: bounds,
+        xRadius: iconFile.pixels * 0.14,
+        yRadius: iconFile.pixels * 0.14
+    ).addClip()
+    sourceImage.draw(in: NSRect(origin: .zero, size: size))
     image.unlockFocus()
 
     guard
@@ -63,105 +67,6 @@ process.waitUntilExit()
 
 if process.terminationStatus != 0 {
     try writeICNS(from: iconsetURL, to: outputURL)
-}
-
-func drawIcon(in context: CGContext) {
-    let bgPath = CGPath(
-        roundedRect: CGRect(x: 152, y: 128, width: 720, height: 720),
-        cornerWidth: 168,
-        cornerHeight: 168,
-        transform: nil
-    )
-
-    context.saveGState()
-    context.setShadow(
-        offset: CGSize(width: 0, height: 34),
-        blur: 34,
-        color: CGColor(red: 0.03, green: 0.18, blue: 0.47, alpha: 0.32)
-    )
-    context.addPath(bgPath)
-    context.setFillColor(CGColor(red: 0.10, green: 0.47, blue: 0.95, alpha: 1.0))
-    context.fillPath()
-    context.restoreGState()
-
-    context.saveGState()
-    context.addPath(bgPath)
-    context.clip()
-    drawGradient(
-        in: context,
-        colors: [
-            CGColor(red: 0.35, green: 0.72, blue: 1.00, alpha: 1.0),
-            CGColor(red: 0.10, green: 0.47, blue: 0.95, alpha: 1.0),
-            CGColor(red: 0.05, green: 0.25, blue: 0.73, alpha: 1.0)
-        ],
-        locations: [0.0, 0.52, 1.0],
-        start: CGPoint(x: 180, y: 92),
-        end: CGPoint(x: 844, y: 932)
-    )
-
-    let shinePath = CGPath(
-        roundedRect: CGRect(x: 176, y: 152, width: 672, height: 672),
-        cornerWidth: 148,
-        cornerHeight: 148,
-        transform: nil
-    )
-    context.addPath(shinePath)
-    context.clip()
-    drawGradient(
-        in: context,
-        colors: [
-            CGColor(red: 1, green: 1, blue: 1, alpha: 0.46),
-            CGColor(red: 1, green: 1, blue: 1, alpha: 0.0)
-        ],
-        locations: [0.0, 1.0],
-        start: CGPoint(x: 238, y: 144),
-        end: CGPoint(x: 786, y: 820)
-    )
-    context.restoreGState()
-
-    strokePath(in: context, points: [CGPoint(x: 512, y: 258), CGPoint(x: 512, y: 608)], color: CGColor(red: 1, green: 1, blue: 1, alpha: 1), width: 86)
-    strokePath(in: context, points: [CGPoint(x: 354, y: 500), CGPoint(x: 512, y: 658), CGPoint(x: 670, y: 500)], color: CGColor(red: 1, green: 1, blue: 1, alpha: 1), width: 86)
-
-    let bolt = CGMutablePath()
-    bolt.move(to: CGPoint(x: 609, y: 716))
-    bolt.addLine(to: CGPoint(x: 701, y: 542))
-    bolt.addLine(to: CGPoint(x: 625, y: 542))
-    bolt.addLine(to: CGPoint(x: 668, y: 414))
-    bolt.addLine(to: CGPoint(x: 516, y: 604))
-    bolt.addLine(to: CGPoint(x: 602, y: 604))
-    bolt.addLine(to: CGPoint(x: 557, y: 736))
-    bolt.addCurve(to: CGPoint(x: 609, y: 716), control1: CGPoint(x: 550, y: 757), control2: CGPoint(x: 598, y: 736))
-    bolt.closeSubpath()
-
-    context.addPath(bolt)
-    context.setFillColor(CGColor(red: 0.87, green: 0.96, blue: 0.36, alpha: 1.0))
-    context.fillPath()
-}
-
-func drawGradient(in context: CGContext, colors: [CGColor], locations: [CGFloat], start: CGPoint, end: CGPoint) {
-    let colorSpace = CGColorSpaceCreateDeviceRGB()
-    guard let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: locations) else {
-        return
-    }
-    context.drawLinearGradient(gradient, start: start, end: end, options: [])
-}
-
-func strokePath(in context: CGContext, points: [CGPoint], color: CGColor, width: CGFloat) {
-    guard let first = points.first else {
-        return
-    }
-
-    context.saveGState()
-    context.setStrokeColor(color)
-    context.setLineWidth(width)
-    context.setLineCap(.round)
-    context.setLineJoin(.round)
-    context.move(to: first)
-    for point in points.dropFirst() {
-        context.addLine(to: point)
-    }
-    context.strokePath()
-    context.restoreGState()
 }
 
 func writeICNS(from iconsetURL: URL, to outputURL: URL) throws {

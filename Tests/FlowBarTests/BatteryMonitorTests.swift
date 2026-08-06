@@ -110,6 +110,18 @@ final class BatteryMonitorTests: XCTestCase {
 
         XCTAssertEqual(try XCTUnwrap(values["TemperatureCelsius"] as? Double), 30.5, accuracy: 0.001)
     }
+
+    func testProviderNormalizesPackBatteryTemperatureFromCentiCelsius() {
+        let values = IOKitBatteryProvider.normalized([
+            "AppleSmartBatteryPack": [
+                "BatteryData": [
+                    "Temperature": 3839
+                ]
+            ]
+        ])
+
+        XCTAssertEqual(try XCTUnwrap(values["TemperatureCelsius"] as? Double), 38.39, accuracy: 0.001)
+    }
 }
 
 private struct FakeBatteryProvider: BatteryInfoProviding {

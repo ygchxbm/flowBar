@@ -4,7 +4,10 @@ import IOKit.ps
 
 final class IOKitBatteryProvider: BatteryInfoProviding {
     func batteryInfo() -> [String: Any] {
-        if let smartBatteryInfo = appleSmartBatteryInfo() {
+        if var smartBatteryInfo = appleSmartBatteryInfo() {
+            if let smartBatteryPackInfo = appleSmartBatteryPackInfo() {
+                smartBatteryInfo["AppleSmartBatteryPack"] = smartBatteryPackInfo
+            }
             return Self.normalized(smartBatteryInfo)
         }
 
@@ -27,6 +30,15 @@ final class IOKitBatteryProvider: BatteryInfoProviding {
 
     private func appleSmartBatteryInfo() -> [String: Any]? {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+        return registryProperties(for: service)
+    }
+
+    private func appleSmartBatteryPackInfo() -> [String: Any]? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBatteryPack"))
+        return registryProperties(for: service)
+    }
+
+    private func registryProperties(for service: io_service_t) -> [String: Any]? {
         guard service != 0 else {
             return nil
         }
@@ -62,6 +74,10 @@ final class IOKitBatteryProvider: BatteryInfoProviding {
         }
         if let temperature = doubleValue(description["Temperature"]) {
             values["TemperatureCelsius"] = BatteryMonitor.normalizedTemperatureCelsius(temperature)
+        } else if let pack = description["AppleSmartBatteryPack"] as? [String: Any],
+                  let batteryData = pack["BatteryData"] as? [String: Any],
+                  let temperature = doubleValue(batteryData["Temperature"]) {
+            values["TemperatureCelsius"] = temperature / 100.0
         }
 
         return values
