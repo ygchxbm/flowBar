@@ -1,47 +1,121 @@
 # FlowBar
 
-FlowBar is a lightweight macOS 13+ menu bar app that shows current download speed in the status bar and current battery details in a small popover.
+藏在菜单栏里的实时状态条：下载速度一抬眼就能看到，点一下还能查看 Mac 当前的电池状态。
 
-## Build
+`macOS 13+` · `菜单栏常驻` · `原生 AppKit / SwiftUI` · `本地采样`
 
-Requires macOS 13+ and a working SwiftPM/Xcode Command Line Tools installation for Swift 5.9 or newer. If `swift` fails before compiling with a missing `BuildServerProtocol.framework`, repair or reinstall Xcode Command Line Tools.
+---
 
-```bash
-swift test
-Scripts/build-app.sh
-```
+## 认识 FlowBar
 
-The app bundle is created at:
+FlowBar 是一个轻量的 macOS 菜单栏应用。它把当前下载速度放在菜单栏中，并在展开面板里汇总电池温度、充电功率、电量和供电状态。
+
+应用只读取本机可用的系统状态，不上传数据，也不保存历史记录。需要时看一眼，不需要时就留在菜单栏里。
+
+## 能做什么
+
+### 当前下载速度，随时可见
+
+FlowBar 每 2 秒读取活跃网络接口的接收字节数，并根据相邻两次采样的差值计算下载速度。菜单栏会以紧凑单位显示：
 
 ```text
-.build/FlowBar.app
+↓ 860K
+↓ 1.2M
+↓ 1.1G
 ```
 
-## Run
+- 自动忽略回环接口和未启用的网络接口。
+- 同时有多个活跃接口时，会合并计算它们的下载流量。
+- 第一次采样或暂时无法取得数据时显示 `↓ --`，不会把旧数值误当作实时速度。
+
+### 电池状态，一次看清
+
+点击菜单栏中的 FlowBar，即可查看：
+
+- 当前下载速度
+- 电池温度（摄氏度）
+- 充电或放电功率
+- 电池电量
+- 供电状态：充电中、接入电源、使用电池或已充满
+
+系统未提供某一项数据时，该项会显示 `--`，其他可用数据仍会正常更新。充电功率由系统提供的电压和电流计算得出；正值代表充电，负值代表放电。
+
+### 随登录启动
+
+展开面板后，可通过“登录时启动”开关让 FlowBar 在登录 macOS 后自动运行。
+
+## 快速开始
+
+目前 FlowBar 从源码构建运行。
+
+### 环境要求
+
+- macOS 13 Ventura 或更高版本
+- Xcode Command Line Tools 或 Xcode
+- Swift 5.9 或更高版本
+
+### 构建并打开
 
 ```bash
+git clone https://github.com/ygchxbm/flowBar.git
+cd flowBar
+bash Scripts/build-app.sh
 open .build/FlowBar.app
 ```
 
-FlowBar is menu-bar-only and should not appear in the Dock.
+构建完成后，应用位于 `.build/FlowBar.app`。首次打开时，菜单栏会出现以 `↓` 开头的速度读数；FlowBar 是菜单栏应用，不会出现在 Dock 中。
 
-## Version 1 Scope
+> 若 `swift` 在编译前提示缺少 `BuildServerProtocol.framework`，请修复或重新安装 Xcode Command Line Tools。
 
-- Shows download speed in the status bar.
-- Refreshes every 2 seconds.
-- Shows battery temperature, charging power, battery level, and charging state in the popover.
-- Includes a minimal Launch at Login toggle.
-- Does not show upload speed.
-- Does not store metric history.
-- Does not use third-party sensor tools.
+## 使用说明
 
-## Manual Verification
+1. 启动 FlowBar，等待一次采样完成。
+2. 在菜单栏查看当前下载速度。
+3. 点击速度读数，展开状态面板。
+4. 查看电池详情，或按需打开“登录时启动”。
+5. 点击面板外部或再次点击菜单栏读数，即可收起面板。
 
-- Start FlowBar and confirm a `↓` speed appears in the menu bar.
-- Generate network download activity and confirm the menu bar value changes.
-- Stop network activity and confirm the value returns to a low or zero speed.
-- Click the menu bar item and confirm the popover opens.
-- Confirm unavailable battery fields show `--` without breaking other fields.
-- Connect and disconnect power and confirm charging state changes if macOS exposes it.
-- Toggle Launch at Login on and off.
-- Confirm FlowBar does not appear in the Dock.
+## 数据与限制
+
+FlowBar 的目标是快速查看当前状态，因此刻意保持简单：
+
+- 不采集或上传任何网络、电池历史数据。
+- 不显示上传速度。
+- 不提供历史图表、告警或完整设置窗口。
+- 不依赖第三方命令行传感器工具。
+- 电池温度、功率等字段是否可用，取决于当前 Mac 与 macOS 提供的 IOKit 数据。
+- 速度为 2 秒采样窗口内的估算值，不是逐毫秒更新的带宽测试结果。
+
+## 开发
+
+运行全部测试：
+
+```bash
+swift test
+```
+
+构建调试版应用：
+
+```bash
+bash Scripts/build-app.sh debug
+open .build/FlowBar.app
+```
+
+### 项目结构
+
+| 位置 | 职责 |
+| --- | --- |
+| `Sources/FlowBar/App` | 应用入口、菜单栏面板和登录时启动控制 |
+| `Sources/FlowBar/Network` | 活跃网络接口读取与下载速度计算 |
+| `Sources/FlowBar/Battery` | IOKit 电池数据读取、温度与功率解析 |
+| `Sources/FlowBar/Metrics` | 指标快照模型和显示格式化 |
+| `Tests/FlowBarTests` | 网络、电池、格式化与采样逻辑的单元测试 |
+
+## 手动验证
+
+- 启动后，菜单栏显示 `↓ --` 或当前下载速度。
+- 产生下载活动后，速度读数会随采样更新。
+- 点击菜单栏读数，状态面板能够正常展开和收起。
+- 电池信息缺失时，仅对应字段显示 `--`。
+- 接入或拔掉电源后，供电状态会在系统数据可用时更新。
+- 切换“登录时启动”后，可在 macOS 的登录项设置中确认结果。
