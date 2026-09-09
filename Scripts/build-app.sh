@@ -13,10 +13,12 @@ cd "$ROOT_DIR"
 
 swift build --disable-sandbox -c "$CONFIGURATION" -debug-info-format none
 
+BIN_DIR="$(swift build --disable-sandbox -c "$CONFIGURATION" --show-bin-path)"
+
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR"
 mkdir -p "$RESOURCES_DIR"
-cp "$ROOT_DIR/.build/$CONFIGURATION/FlowBar" "$MACOS_DIR/FlowBar"
+cp "$BIN_DIR/FlowBar" "$MACOS_DIR/FlowBar"
 cp "$ROOT_DIR/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$ROOT_DIR/Resources/FlowBarIcon.icns" "$RESOURCES_DIR/FlowBarIcon.icns"
 codesign --force --deep --sign - "$APP_DIR"

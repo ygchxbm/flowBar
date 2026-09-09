@@ -5,6 +5,7 @@ struct NetworkInterfaceSample: Equatable {
     var receivedBytes: UInt64
     var isLoopback: Bool
     var isActive: Bool
+    var isHardware: Bool = true
 }
 
 protocol NetworkInterfaceProviding {
@@ -22,7 +23,7 @@ final class NetworkSpeedMonitor {
 
     func sample(now: Date = Date()) -> Double? {
         let currentBytesByInterface = provider.interfaceSamples()
-            .filter { !$0.isLoopback && $0.isActive }
+            .filter { !$0.isLoopback && $0.isActive && $0.isHardware }
             .reduce(into: [String: UInt64]()) { result, sample in
                 result[sample.name] = sample.receivedBytes
             }

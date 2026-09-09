@@ -28,9 +28,11 @@ final class StatusBarController: NSObject {
         statusItem.button?.action = #selector(togglePanel(_:))
 
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        let samplingTimer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
             self?.refresh()
         }
+        timer = samplingTimer
+        RunLoop.main.add(samplingTimer, forMode: .common)
     }
 
     deinit {
@@ -39,7 +41,6 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func togglePanel(_ sender: Any?) {
-        refresh()
 
         if panel?.isVisible == true {
             closePanel()

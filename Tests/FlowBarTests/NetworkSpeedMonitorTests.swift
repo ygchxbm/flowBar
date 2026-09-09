@@ -41,6 +41,20 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 12)), 1_000)
     }
 
+    func testDoesNotCountTrafficAgainOnVirtualInterfaces() {
+        let provider = FakeNetworkInterfaceProvider(samples: [1_000, 4_000].map { bytes in
+            [
+                NetworkInterfaceSample(name: "en0", receivedBytes: UInt64(bytes), isLoopback: false, isActive: true),
+                NetworkInterfaceSample(name: "utun0", receivedBytes: UInt64(bytes), isLoopback: false, isActive: true, isHardware: false),
+                NetworkInterfaceSample(name: "bridge0", receivedBytes: UInt64(bytes), isLoopback: false, isActive: true, isHardware: false)
+            ]
+        })
+        let monitor = NetworkSpeedMonitor(provider: provider)
+
+        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
+        XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 12)), 1_500)
+    }
+
     func testNonPositiveElapsedTimeReturnsNil() {
         let provider = FakeNetworkInterfaceProvider(samples: [
             [NetworkInterfaceSample(name: "en0", receivedBytes: 1_000, isLoopback: false, isActive: true)],
