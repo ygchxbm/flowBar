@@ -2,6 +2,24 @@ import XCTest
 @testable import FlowBar
 
 final class NetworkSpeedMonitorTests: XCTestCase {
+    func testUploadAndDownloadShareSampleAndResetIndependently() {
+        let provider = FakeNetworkInterfaceProvider(samples: [
+            [NetworkInterfaceSample(name: "en0", receivedBytes: 100, isLoopback: false, isActive: true, sentBytes: 200)],
+            [NetworkInterfaceSample(name: "en0", receivedBytes: 4100, isLoopback: false, isActive: true, sentBytes: 1200)],
+            [NetworkInterfaceSample(name: "en0", receivedBytes: 6100, isLoopback: false, isActive: true, sentBytes: 10)]
+        ])
+        let monitor = NetworkSpeedMonitor(provider: provider)
+        let initial = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10))
+        XCTAssertNil(initial.download)
+        XCTAssertNil(initial.upload)
+        let speeds = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 12))
+        XCTAssertEqual(speeds.download, 2000)
+        XCTAssertEqual(speeds.upload, 500)
+        let reset = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 14))
+        XCTAssertEqual(reset.download, 1000)
+        XCTAssertNil(reset.upload)
+    }
+
     func testFirstSampleReturnsNilBecauseNoDeltaExists() {
         let provider = FakeNetworkInterfaceProvider(samples: [
             [NetworkInterfaceSample(name: "en0", receivedBytes: 1_000, isLoopback: false, isActive: true)]

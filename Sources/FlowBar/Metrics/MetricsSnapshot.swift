@@ -2,6 +2,7 @@ import Foundation
 
 struct MetricsSnapshot: Equatable {
     var downloadBytesPerSecond: Double?
+    var uploadBytesPerSecond: Double? = nil
     var battery: BatterySnapshot
 
     static let unavailable = MetricsSnapshot(

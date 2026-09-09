@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 final class BatteryPopoverViewController: NSViewController {
-    static let preferredContentSize = NSSize(width: 276, height: 390)
+    static let preferredContentSize = NSSize(width: 276, height: 493)
     static let cornerRadius: CGFloat = 22
 
     private let viewModel: FlowBarPopoverViewModel
@@ -13,6 +13,11 @@ final class BatteryPopoverViewController: NSViewController {
         self.viewModel = viewModel
         hostingController = NSHostingController(rootView: FlowBarPopoverRootView(viewModel: viewModel))
         super.init(nibName: nil, bundle: nil)
+    }
+
+    func configureSelection(_ metric: MenuBarMetric, onChange: @escaping (MenuBarMetric) -> Void) {
+        viewModel.selectedMetric = metric
+        viewModel.onMetricChange = onChange
     }
 
     @available(*, unavailable)
@@ -34,6 +39,14 @@ final class BatteryPopoverViewController: NSViewController {
 }
 
 final class FlowBarPopoverViewModel: ObservableObject {
+    @Published var selectedMetric: MenuBarMetric = .download
+    var onMetricChange: ((MenuBarMetric) -> Void)?
+
+    func cycleMetric(by offset: Int) {
+        selectedMetric = selectedMetric.moved(by: offset)
+        onMetricChange?(selectedMetric)
+    }
+
     @Published var rows: [FlowBarMetricRow] = []
     @Published var launchAtLoginEnabled: Bool
 
@@ -46,13 +59,10 @@ final class FlowBarPopoverViewModel: ObservableObject {
     }
 
     func update(snapshot: MetricsSnapshot) {
-        rows = [
-            FlowBarMetricRow(symbolName: "arrow.down.circle", title: "下载速度", value: MetricFormatters.downloadSpeed(snapshot.downloadBytesPerSecond), tint: Color(red: 0.43, green: 0.39, blue: 0.96)),
-            FlowBarMetricRow(symbolName: "thermometer", title: "电池温度", value: MetricFormatters.temperature(snapshot.battery.temperatureCelsius), tint: .red),
-            FlowBarMetricRow(symbolName: "bolt.fill", title: "充电功率", value: MetricFormatters.chargingPower(snapshot.battery.chargingWatts), tint: .green),
-            FlowBarMetricRow(symbolName: "battery.75", title: "电池电量", value: MetricFormatters.batteryLevel(snapshot.battery.levelPercent), tint: .green),
-            FlowBarMetricRow(symbolName: "powerplug", title: "电源状态", value: MetricFormatters.powerState(snapshot.battery.powerState), tint: .blue)
-        ]
+        rows = MenuBarMetric.allCases.map { metric in
+            FlowBarMetricRow(symbolName: metric.symbol, title: metric.title,
+                             value: metric.formatted(snapshot), tint: metric.tint)
+        }
         launchAtLoginEnabled = launchAtLoginController.isEnabled
     }
 
@@ -67,7 +77,7 @@ final class FlowBarPopoverViewModel: ObservableObject {
 }
 
 struct FlowBarMetricRow: Identifiable {
-    let id = UUID()
+    var id: String { symbolName }
     var symbolName: String
     var title: String
     var value: String
@@ -77,7 +87,7 @@ struct FlowBarMetricRow: Identifiable {
 struct FlowBarPopoverRootView: View {
     private enum Layout {
         static let width: CGFloat = 276
-        static let height: CGFloat = 378
+        static let height: CGFloat = 493
         static let arrowHeight: CGFloat = 16
         static let cornerRadius: CGFloat = 22
     }
@@ -112,6 +122,8 @@ struct FlowBarPopoverRootView: View {
                     .padding(.top, 34)
 
                 FlowBarMetricCard(rows: viewModel.rows)
+
+                FlowBarMetricSelector(metric: viewModel.selectedMetric, onMove: viewModel.cycleMetric)
 
                 FlowBarLaunchCard(isEnabled: viewModel.launchAtLoginEnabled, onChange: viewModel.setLaunchAtLoginEnabled)
 
@@ -370,5 +382,70 @@ private struct VisualEffectBlur: NSViewRepresentable {
         nsView.material = material
         nsView.blendingMode = blendingMode
         nsView.state = .active
+    }
+}
+
+extension MenuBarMetric {
+    var tint: Color {
+        switch self {
+        case .download: return Color(red: 0.43, green: 0.39, blue: 0.96)
+        case .upload: return Color(red: 0.16, green: 0.58, blue: 0.84)
+        case .temperature: return .red
+        case .power, .level: return .green
+        case .powerState: return .blue
+        }
+    }
+}
+
+private struct FlowBarMetricSelector: View {
+    let metric: MenuBarMetric
+    let onMove: (Int) -> Void
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack {
+                Text("菜单栏显示")
+                Spacer()
+                Text("\(metric.index + 1) / \(MenuBarMetric.allCases.count)").monospacedDigit()
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(Color.secondary.opacity(0.75))
+            .padding(.horizontal, 4)
+            HStack {
+                arrow("chevron.left", label: "上一项", offset: -1)
+                Spacer(minLength: 0)
+                HStack(spacing: 6) {
+                    Image(systemName: metric.symbol)
+                        .font(.system(size: 16)).foregroundStyle(metric.tint.opacity(0.88))
+                        .frame(width: 24)
+                    Text(metric.title).font(.system(size: 13))
+                }
+                .foregroundStyle(Color.primary.opacity(0.78))
+                Spacer(minLength: 0)
+                arrow("chevron.right", label: "下一项", offset: 1)
+            }
+            .frame(height: 32)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 66)
+        .background(smallCardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
+        }
+    }
+
+    private func arrow(_ symbol: String, label: String, offset: Int) -> some View {
+        Button { onMove(offset) } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.primary.opacity(0.78))
+                .frame(width: 28, height: 28)
+                .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .help(label)
     }
 }

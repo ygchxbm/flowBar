@@ -1,7 +1,7 @@
 import Foundation
 
 protocol NetworkSpeedSampling {
-    func sample(now: Date) -> Double?
+    func sampleSpeeds(now: Date) -> NetworkSpeeds
 }
 
 protocol BatterySampling {
@@ -25,8 +25,10 @@ final class MetricsSampler {
     }
 
     func snapshot(now: Date = Date()) -> MetricsSnapshot {
-        MetricsSnapshot(
-            downloadBytesPerSecond: networkSpeed.sample(now: now),
+        let network = networkSpeed.sampleSpeeds(now: now)
+        return MetricsSnapshot(
+            downloadBytesPerSecond: network.download,
+            uploadBytesPerSecond: network.upload,
             battery: battery.snapshot()
         )
     }

@@ -18,6 +18,10 @@ enum MetricFormatters {
         return "↓ \(roundedKib)K"
     }
 
+    static func uploadSpeed(_ bytesPerSecond: Double?) -> String {
+        downloadSpeed(bytesPerSecond).replacingOccurrences(of: "↓", with: "↑")
+    }
+
     static func temperature(_ celsius: Double?) -> String {
         guard let celsius, celsius.isFinite else { return "--" }
         return "\(Int(celsius.rounded()))°C"

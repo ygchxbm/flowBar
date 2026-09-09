@@ -6,15 +6,21 @@ struct NetworkInterfaceSample: Equatable {
     var isLoopback: Bool
     var isActive: Bool
     var isHardware: Bool = true
+    var sentBytes: UInt64 = 0
 }
 
 protocol NetworkInterfaceProviding {
     func interfaceSamples() -> [NetworkInterfaceSample]
 }
 
+struct NetworkSpeeds {
+    var download: Double?
+    var upload: Double?
+}
+
 final class NetworkSpeedMonitor {
     private let provider: NetworkInterfaceProviding
-    private var previousBytesByInterface: [String: UInt64] = [:]
+    private var previous: [String: NetworkInterfaceSample] = [:]
     private var previousDate: Date?
 
     init(provider: NetworkInterfaceProviding = SystemNetworkInterfaceProvider()) {
@@ -22,43 +28,28 @@ final class NetworkSpeedMonitor {
     }
 
     func sample(now: Date = Date()) -> Double? {
-        let currentBytesByInterface = provider.interfaceSamples()
+        sampleSpeeds(now: now).download
+    }
+
+    func sampleSpeeds(now: Date = Date()) -> NetworkSpeeds {
+        let current = provider.interfaceSamples()
             .filter { !$0.isLoopback && $0.isActive && $0.isHardware }
-            .reduce(into: [String: UInt64]()) { result, sample in
-                result[sample.name] = sample.receivedBytes
-            }
-
-        defer {
-            previousBytesByInterface = currentBytesByInterface
-            previousDate = now
+            .reduce(into: [String: NetworkInterfaceSample]()) { $0[$1.name] = $1 }
+        defer { previous = current; previousDate = now }
+        guard let previousDate, now > previousDate else {
+            return NetworkSpeeds(download: nil, upload: nil)
         }
-
-        guard let previousDate else {
-            return nil
-        }
-
         let elapsed = now.timeIntervalSince(previousDate)
-        guard elapsed > 0 else {
-            return nil
-        }
-
-        var bytesDelta: UInt64 = 0
-        var hasValidDelta = false
-
-        for (name, currentBytes) in currentBytesByInterface {
-            guard let previousBytes = previousBytesByInterface[name],
-                  currentBytes >= previousBytes else {
-                continue
+        func rate(_ key: KeyPath<NetworkInterfaceSample, UInt64>) -> Double? {
+            var delta = 0.0
+            var valid = false
+            for (name, sample) in current {
+                guard let old = previous[name], sample[keyPath: key] >= old[keyPath: key] else { continue }
+                delta += Double(sample[keyPath: key] - old[keyPath: key])
+                valid = true
             }
-
-            bytesDelta += currentBytes - previousBytes
-            hasValidDelta = true
+            return valid ? delta / elapsed : nil
         }
-
-        guard hasValidDelta else {
-            return nil
-        }
-
-        return Double(bytesDelta) / elapsed
+        return NetworkSpeeds(download: rate(\.receivedBytes), upload: rate(\.sentBytes))
     }
 }

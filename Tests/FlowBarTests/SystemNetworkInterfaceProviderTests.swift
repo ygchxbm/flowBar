@@ -13,6 +13,7 @@ final class SystemNetworkInterfaceProviderTests: XCTestCase {
         message.ifm_index = UInt16(index)
         message.ifm_flags = IFF_UP | IFF_RUNNING | IFF_LOOPBACK
         message.ifm_data.ifi_ibytes = UInt64(UInt32.max) + 12_345
+        message.ifm_data.ifi_obytes = UInt64(UInt32.max) + 54321
         let data = withUnsafeBytes(of: &message) { Data($0) }
 
         let samples = SystemNetworkInterfaceProvider.samples(from: data, hardwareNames: [])
@@ -20,6 +21,7 @@ final class SystemNetworkInterfaceProviderTests: XCTestCase {
         XCTAssertEqual(samples.count, 1)
         XCTAssertEqual(sample.name, "lo0")
         XCTAssertEqual(sample.receivedBytes, UInt64(UInt32.max) + 12_345)
+        XCTAssertEqual(sample.sentBytes, UInt64(UInt32.max) + 54321)
         XCTAssertTrue(sample.isActive)
         XCTAssertTrue(sample.isLoopback)
         XCTAssertFalse(sample.isHardware)

@@ -5,6 +5,7 @@ final class StatusBarController: NSObject {
         static let statusItemWidth: CGFloat = 72
     }
 
+    private let selection = MenuBarSelection()
     private let statusItem: NSStatusItem
     private let metricsSampler: MetricsSampler
     private let popoverViewController: BatteryPopoverViewController
@@ -27,6 +28,11 @@ final class StatusBarController: NSObject {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePanel(_:))
 
+        popoverViewController.configureSelection(selection.metric) { [weak self] metric in
+            guard let self else { return }
+            self.selection.metric = metric
+            self.updateStatusItem()
+        }
         refresh()
         let samplingTimer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
             self?.refresh()
@@ -53,8 +59,22 @@ final class StatusBarController: NSObject {
 
     private func refresh() {
         latestSnapshot = metricsSampler.snapshot()
-        statusItem.button?.title = MetricFormatters.downloadSpeed(latestSnapshot.downloadBytesPerSecond)
+        updateStatusItem()
         popoverViewController.update(snapshot: latestSnapshot)
+    }
+
+    private func updateStatusItem() {
+        let text = selection.metric.formatted(latestSnapshot)
+        statusItem.button?.title = text
+        statusItem.button?.toolTip = selection.metric.title
+        statusItem.button?.setAccessibilityLabel(selection.metric.title + " " + text)
+        if let button = statusItem.button {
+            let font = button.font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize)
+            statusItem.length = max(Layout.statusItemWidth, ceil((text as NSString).size(withAttributes: [.font: font]).width) + 16)
+            if panel?.isVisible == true {
+                panel?.setFrame(panelFrame(relativeTo: button), display: true)
+            }
+        }
     }
 
     private func showPanel(relativeTo button: NSStatusBarButton) {

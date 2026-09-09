@@ -18,6 +18,7 @@ final class MetricsSamplerTests: XCTestCase {
         let snapshot = sampler.snapshot(now: Date(timeIntervalSince1970: 42))
 
         XCTAssertEqual(snapshot.downloadBytesPerSecond, 1_024)
+        XCTAssertEqual(snapshot.uploadBytesPerSecond, 512)
         XCTAssertEqual(snapshot.battery, batterySnapshot)
     }
 
@@ -37,8 +38,8 @@ final class MetricsSamplerTests: XCTestCase {
 private struct FakeNetworkSpeedSampler: NetworkSpeedSampling {
     var speed: Double?
 
-    func sample(now: Date) -> Double? {
-        speed
+    func sampleSpeeds(now: Date) -> NetworkSpeeds {
+        NetworkSpeeds(download: speed, upload: speed.map { $0 / 2 })
     }
 }
 

@@ -60,7 +60,8 @@ final class SystemNetworkInterfaceProvider: NetworkInterfaceProviding {
                             receivedBytes: message.ifm_data.ifi_ibytes,
                             isLoopback: (flags & IFF_LOOPBACK) != 0,
                             isActive: (flags & IFF_UP) != 0 && (flags & IFF_RUNNING) != 0,
-                            isHardware: hardwareNames.contains(name)
+                            isHardware: hardwareNames.contains(name),
+                            sentBytes: message.ifm_data.ifi_obytes
                         ))
                     }
                 }
