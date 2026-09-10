@@ -3,6 +3,20 @@ import XCTest
 @testable import FlowBar
 
 final class MetricsSamplerTests: XCTestCase {
+    func testBatteryOnlyRefreshPreservesNetworkAndDoesNotSampleIt() {
+        let network = CountingNetworkSampler()
+        let battery = BatterySnapshot(temperatureCelsius: 33.2, chargingWatts: -13.3, levelPercent: 55, powerState: .discharging)
+        let sampler = MetricsSampler(networkSpeed: network, battery: FakeBatterySampler(value: battery))
+        let previous = MetricsSnapshot(downloadBytesPerSecond: 8192, uploadBytesPerSecond: 2048, battery: .unavailable)
+        let updated = sampler.refreshingBattery(in: previous)
+        XCTAssertEqual(network.calls, 0)
+        XCTAssertEqual(updated.downloadBytesPerSecond, previous.downloadBytesPerSecond)
+        XCTAssertEqual(updated.uploadBytesPerSecond, previous.uploadBytesPerSecond)
+        XCTAssertEqual(updated.battery, battery)
+        XCTAssertEqual(MenuBarMetric.temperature.detailFormatted(updated), "33.2°C")
+        XCTAssertEqual(MenuBarMetric.temperature.formatted(updated), "33°C")
+    }
+
     func testSnapshotCombinesNetworkSpeedAndBatterySnapshot() {
         let batterySnapshot = BatterySnapshot(
             temperatureCelsius: 31.2,
@@ -48,5 +62,13 @@ private struct FakeBatterySampler: BatterySampling {
 
     func snapshot() -> BatterySnapshot {
         value
+    }
+}
+
+private final class CountingNetworkSampler: NetworkSpeedSampling {
+    var calls = 0
+    func sampleSpeeds(now: Date) -> NetworkSpeeds {
+        calls += 1
+        return NetworkSpeeds(download: nil, upload: nil)
     }
 }

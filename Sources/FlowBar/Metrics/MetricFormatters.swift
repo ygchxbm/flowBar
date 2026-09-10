@@ -35,6 +35,19 @@ enum MetricFormatters {
         return "0W"
     }
 
+    static func detailedTemperature(_ celsius: Double?) -> String {
+        guard let celsius, celsius.isFinite else { return "--" }
+        return String(format: "%.1f°C", locale: Locale(identifier: "en_US_POSIX"), celsius == 0 ? 0 : celsius)
+    }
+
+    static func detailedBatteryPower(_ watts: Double?) -> String {
+        guard let watts, watts.isFinite else { return "--" }
+        // Format first, so small negative readings do not display as -0.0W.
+        let number = String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), watts)
+        if number == "-0.0" || number == "0.0" { return "0.0W" }
+        return (watts > 0 ? "+" : "") + number + "W"
+    }
+
     static func batteryLevel(_ percent: Int?) -> String {
         guard let percent else { return "--" }
         return "\(max(0, min(100, percent)))%"

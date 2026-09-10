@@ -13,6 +13,7 @@ final class StatusBarController: NSObject {
     private var localEventMonitor: Any?
     private var globalEventMonitor: Any?
     private var timer: Timer?
+    private var powerSourceObserver: PowerSourceObserver?
     private var latestSnapshot: MetricsSnapshot = .unavailable
 
     init(metricsSampler: MetricsSampler = MetricsSampler()) {
@@ -32,6 +33,9 @@ final class StatusBarController: NSObject {
             guard let self else { return }
             self.selection.metric = metric
             self.updateStatusItem()
+        }
+        powerSourceObserver = PowerSourceObserver { [weak self] in
+            self?.refreshBattery()
         }
         refresh()
         let samplingTimer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
@@ -54,7 +58,14 @@ final class StatusBarController: NSObject {
         }
 
         guard let button = statusItem.button else { return }
+        refreshBattery()
         showPanel(relativeTo: button)
+    }
+
+    private func refreshBattery() {
+        latestSnapshot = metricsSampler.refreshingBattery(in: latestSnapshot)
+        updateStatusItem()
+        popoverViewController.update(snapshot: latestSnapshot)
     }
 
     private func refresh() {

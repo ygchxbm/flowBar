@@ -24,6 +24,12 @@ final class MetricsSampler {
         self.battery = battery
     }
 
+    func refreshingBattery(in snapshot: MetricsSnapshot) -> MetricsSnapshot {
+        var updated = snapshot
+        updated.battery = battery.snapshot()
+        return updated
+    }
+
     func snapshot(now: Date = Date()) -> MetricsSnapshot {
         let network = networkSpeed.sampleSpeeds(now: now)
         return MetricsSnapshot(

@@ -2,6 +2,17 @@ import XCTest
 @testable import FlowBar
 
 final class MetricFormattersTests: XCTestCase {
+    func testDetailedBatteryValues() {
+        XCTAssertEqual(MetricFormatters.detailedTemperature(33.24), "33.2°C")
+        XCTAssertEqual(MetricFormatters.detailedTemperature(33), "33.0°C")
+        XCTAssertEqual(MetricFormatters.detailedTemperature(.nan), "--")
+        XCTAssertEqual(MetricFormatters.detailedBatteryPower(18.24), "+18.2W")
+        XCTAssertEqual(MetricFormatters.detailedBatteryPower(-13.26), "-13.3W")
+        XCTAssertEqual(MetricFormatters.detailedBatteryPower(-0.01), "0.0W")
+        XCTAssertEqual(MetricFormatters.detailedBatteryPower(nil), "--")
+        XCTAssertEqual(MetricFormatters.detailedBatteryPower(.infinity), "--")
+    }
+
     func testDownloadSpeedUnavailable() {
         XCTAssertEqual(MetricFormatters.downloadSpeed(nil), "↓ --")
         XCTAssertEqual(MetricFormatters.downloadSpeed(-1), "↓ --")

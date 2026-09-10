@@ -8,7 +8,7 @@ enum MenuBarMetric: String, CaseIterable {
         case .download: return "下载速度"
         case .upload: return "上传速度"
         case .temperature: return "电池温度"
-        case .power: return "充电功率"
+        case .power: return "电池功率"
         case .level: return "电池电量"
         case .powerState: return "电源状态"
         }
@@ -30,6 +30,14 @@ enum MenuBarMetric: String, CaseIterable {
     func moved(by offset: Int) -> Self {
         let count = Self.allCases.count
         return Self.allCases[(index + offset % count + count) % count]
+    }
+
+    func detailFormatted(_ snapshot: MetricsSnapshot) -> String {
+        switch self {
+        case .temperature: return MetricFormatters.detailedTemperature(snapshot.battery.temperatureCelsius)
+        case .power: return MetricFormatters.detailedBatteryPower(snapshot.battery.chargingWatts)
+        default: return formatted(snapshot)
+        }
     }
 
     func formatted(_ snapshot: MetricsSnapshot) -> String {

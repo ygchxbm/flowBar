@@ -61,7 +61,7 @@ final class FlowBarPopoverViewModel: ObservableObject {
     func update(snapshot: MetricsSnapshot) {
         rows = MenuBarMetric.allCases.map { metric in
             FlowBarMetricRow(symbolName: metric.symbol, title: metric.title,
-                             value: metric.formatted(snapshot), tint: metric.tint)
+                             value: metric.detailFormatted(snapshot), tint: metric.tint)
         }
         launchAtLoginEnabled = launchAtLoginController.isEnabled
     }
@@ -236,6 +236,7 @@ private struct FlowBarLaunchCard: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                .modifier(PointingHandCursor())
         }
         .frame(height: 42)
         .padding(.horizontal, 14)
@@ -249,7 +250,7 @@ private struct FlowBarLaunchCard: View {
 
 private struct FlowBarQuitCard: View {
     var action: () -> Void
-    @ObservedObject private var hoverState = FlowBarHoverState()
+    @StateObject private var hoverState = FlowBarHoverState()
 
     var body: some View {
         Button(action: action) {
@@ -269,9 +270,6 @@ private struct FlowBarQuitCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
-        .overlay {
-            CursorTrackingView()
-        }
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(smallCardFill)
@@ -287,6 +285,7 @@ private struct FlowBarQuitCard: View {
         .onHover { hovering in
             hoverState.isHovering = hovering
         }
+        .modifier(PointingHandCursor())
     }
 }
 
@@ -294,22 +293,28 @@ private final class FlowBarHoverState: ObservableObject {
     @Published var isHovering = false
 }
 
-private struct CursorTrackingView: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        CursorView()
+private struct PointingHandCursor: ViewModifier {
+    @StateObject private var state = FlowBarHoverState()
+
+    func body(content: Content) -> some View {
+        content
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    state.isHovering = true
+                    // Reassert during movement: the hosting view can reset the cursor.
+                    NSCursor.pointingHand.set()
+                case .ended:
+                    restoreCursor()
+                }
+            }
+            .onDisappear { restoreCursor() }
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
-}
-
-private final class CursorView: NSView {
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        return nil
-    }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .pointingHand)
+    private func restoreCursor() {
+        guard state.isHovering else { return }
+        state.isHovering = false
+        NSCursor.arrow.set()
     }
 }
 
@@ -445,6 +450,7 @@ private struct FlowBarMetricSelector: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .modifier(PointingHandCursor())
         .accessibilityLabel(label)
         .help(label)
     }
