@@ -72,24 +72,14 @@ final class IOKitBatteryProvider: BatteryInfoProviding {
         if let powerSourceState = description[kIOPSPowerSourceStateKey] as? String {
             values["ExternalConnected"] = powerSourceState == kIOPSACPowerValue
         }
-        if let temperature = doubleValue(description["Temperature"]) {
+        if let temperature = BatteryNumericValue.double(description["Temperature"]) {
             values["TemperatureCelsius"] = BatteryMonitor.normalizedTemperatureCelsius(temperature)
         } else if let pack = description["AppleSmartBatteryPack"] as? [String: Any],
                   let batteryData = pack["BatteryData"] as? [String: Any],
-                  let temperature = doubleValue(batteryData["Temperature"]) {
+                  let temperature = BatteryNumericValue.double(batteryData["Temperature"]) {
             values["TemperatureCelsius"] = temperature / 100.0
         }
 
         return values
-    }
-
-    private static func doubleValue(_ value: Any?) -> Double? {
-        if let value = value as? Double { return value }
-        if let value = value as? Float { return Double(value) }
-        if let value = value as? Int { return Double(value) }
-        if let value = value as? Int32 { return Double(value) }
-        if let value = value as? Int64 { return Double(value) }
-        if let value = value as? NSNumber { return value.doubleValue }
-        return nil
     }
 }

@@ -2,3 +2,12 @@
 .build/
 .swiftpm/
 .DS_Store
+
+# Release output
+/dist/
+*.app/
+*.dSYM/
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate

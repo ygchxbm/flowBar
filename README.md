@@ -70,7 +70,7 @@ FlowBar 每 2 秒读取活跃硬件网络接口的接收与发送字节数，并
 ```bash
 git clone https://github.com/ygchxbm/flowBar.git
 cd flowBar
-bash Scripts/build-app.sh
+bash build.sh
 open .build/FlowBar.app
 ```
 
@@ -108,7 +108,7 @@ swift test
 构建调试版应用：
 
 ```bash
-bash Scripts/build-app.sh debug
+bash build.sh debug
 open .build/FlowBar.app
 ```
 

@@ -2,8 +2,7 @@ import AppKit
 import SwiftUI
 
 final class BatteryPopoverViewController: NSViewController {
-    static let preferredContentSize = NSSize(width: 276, height: 493)
-    static let cornerRadius: CGFloat = 22
+    static let preferredContentSize = NSSize(width: FlowBarPopoverLayout.width, height: FlowBarPopoverLayout.height)
 
     private let viewModel: FlowBarPopoverViewModel
     private let hostingController: NSHostingController<FlowBarPopoverRootView>
@@ -84,19 +83,19 @@ struct FlowBarMetricRow: Identifiable {
     var tint: Color
 }
 
-struct FlowBarPopoverRootView: View {
-    private enum Layout {
-        static let width: CGFloat = 276
-        static let height: CGFloat = 493
-        static let arrowHeight: CGFloat = 16
-        static let cornerRadius: CGFloat = 22
-    }
+private enum FlowBarPopoverLayout {
+    static let width: CGFloat = 276
+    static let height: CGFloat = 493
+    static let arrowHeight: CGFloat = 16
+    static let cornerRadius: CGFloat = 22
+}
 
+struct FlowBarPopoverRootView: View {
     @ObservedObject var viewModel: FlowBarPopoverViewModel
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let bubble = FlowBarBubbleShape(arrowWidth: 28, arrowHeight: Layout.arrowHeight, cornerRadius: Layout.cornerRadius)
+        let bubble = FlowBarBubbleShape(arrowWidth: 28, arrowHeight: FlowBarPopoverLayout.arrowHeight, cornerRadius: FlowBarPopoverLayout.cornerRadius)
 
         ZStack {
             bubble
@@ -131,9 +130,9 @@ struct FlowBarPopoverRootView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 14)
-            .frame(width: Layout.width, height: Layout.height, alignment: .topLeading)
+            .frame(width: FlowBarPopoverLayout.width, height: FlowBarPopoverLayout.height, alignment: .topLeading)
         }
-        .frame(width: Layout.width, height: Layout.height)
+        .frame(width: FlowBarPopoverLayout.width, height: FlowBarPopoverLayout.height)
         .background(Color.clear)
     }
 
@@ -175,17 +174,6 @@ private struct FlowBarMetricCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
         }
-    }
-
-    private var cardFill: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.white.opacity(0.16),
-                Color(red: 0.84, green: 0.92, blue: 1.0).opacity(0.12)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
     }
 }
 
@@ -240,7 +228,7 @@ private struct FlowBarLaunchCard: View {
         }
         .frame(height: 42)
         .padding(.horizontal, 14)
-        .background(smallCardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
@@ -272,7 +260,7 @@ private struct FlowBarQuitCard: View {
         .buttonStyle(.plain)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(smallCardFill)
+                .fill(cardFill)
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(Color.red.opacity(hoverState.isHovering ? 0.08 : 0))
@@ -318,7 +306,7 @@ private struct PointingHandCursor: ViewModifier {
     }
 }
 
-private var smallCardFill: LinearGradient {
+private var cardFill: LinearGradient {
     LinearGradient(
         colors: [
             Color.white.opacity(0.16),
@@ -433,7 +421,7 @@ private struct FlowBarMetricSelector: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 66)
-        .background(smallCardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.white.opacity(0.32), lineWidth: 0.5)

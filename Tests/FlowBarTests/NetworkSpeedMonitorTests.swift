@@ -26,7 +26,7 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         ])
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        XCTAssertNil(monitor.sample(now: Date(timeIntervalSince1970: 10)))
+        XCTAssertNil(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download)
     }
 
     func testSecondSampleCalculatesDownloadBytesPerSecond() {
@@ -36,8 +36,8 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         ])
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
-        XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 12)), 2_000)
+        _ = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download
+        XCTAssertEqual(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 12)).download, 2_000)
     }
 
     func testIgnoresLoopbackAndInactiveInterfaces() {
@@ -55,8 +55,8 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         ])
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
-        XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 12)), 1_000)
+        _ = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download
+        XCTAssertEqual(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 12)).download, 1_000)
     }
 
     func testDoesNotCountTrafficAgainOnVirtualInterfaces() {
@@ -69,8 +69,8 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         })
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
-        XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 12)), 1_500)
+        _ = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download
+        XCTAssertEqual(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 12)).download, 1_500)
     }
 
     func testNonPositiveElapsedTimeReturnsNil() {
@@ -80,8 +80,8 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         ])
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
-        XCTAssertNil(monitor.sample(now: Date(timeIntervalSince1970: 10)))
+        _ = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download
+        XCTAssertNil(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download)
     }
 
     func testCounterDecreaseReturnsNil() {
@@ -91,8 +91,8 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         ])
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
-        XCTAssertNil(monitor.sample(now: Date(timeIntervalSince1970: 12)))
+        _ = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download
+        XCTAssertNil(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 12)).download)
     }
 
     func testNewInterfaceDoesNotCreateDownloadSpikeFromLifetimeBytes() {
@@ -109,9 +109,9 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         ])
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
-        XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 12)), 1_000)
-        XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 14)), 3_000)
+        _ = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download
+        XCTAssertEqual(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 12)).download, 1_000)
+        XCTAssertEqual(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 14)).download, 3_000)
     }
 
     func testRemovedInterfaceDoesNotPreventRemainingInterfaceDelta() {
@@ -124,8 +124,8 @@ final class NetworkSpeedMonitorTests: XCTestCase {
         ])
         let monitor = NetworkSpeedMonitor(provider: provider)
 
-        _ = monitor.sample(now: Date(timeIntervalSince1970: 10))
-        XCTAssertEqual(monitor.sample(now: Date(timeIntervalSince1970: 12)), 2_000)
+        _ = monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 10)).download
+        XCTAssertEqual(monitor.sampleSpeeds(now: Date(timeIntervalSince1970: 12)).download, 2_000)
     }
 }
 

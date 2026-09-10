@@ -74,13 +74,13 @@ final class BatteryMonitor {
     }
 
     private func temperatureCelsius(from values: [String: Any]) -> Double? {
-        if let normalized = doubleValue(values["TemperatureCelsius"]) {
+        if let normalized = BatteryNumericValue.double(values["TemperatureCelsius"]) {
             return normalized
         }
-        if let celsius = doubleValue(values["Temperature Celsius"]) {
+        if let celsius = BatteryNumericValue.double(values["Temperature Celsius"]) {
             return celsius
         }
-        if let temperature = doubleValue(values["Temperature"]) {
+        if let temperature = BatteryNumericValue.double(values["Temperature"]) {
             return Self.normalizedTemperatureCelsius(temperature)
         }
         return nil
@@ -116,16 +116,6 @@ final class BatteryMonitor {
         if let value = value as? Int32 { return Int(value) }
         if let value = value as? Int64 { return Int(value) }
         if let value = value as? NSNumber { return value.intValue }
-        return nil
-    }
-
-    private func doubleValue(_ value: Any?) -> Double? {
-        if let value = value as? Double { return value }
-        if let value = value as? Float { return Double(value) }
-        if let value = value as? Int { return Double(value) }
-        if let value = value as? Int32 { return Double(value) }
-        if let value = value as? Int64 { return Double(value) }
-        if let value = value as? NSNumber { return value.doubleValue }
         return nil
     }
 

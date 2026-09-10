@@ -27,10 +27,6 @@ final class NetworkSpeedMonitor {
         self.provider = provider
     }
 
-    func sample(now: Date = Date()) -> Double? {
-        sampleSpeeds(now: now).download
-    }
-
     func sampleSpeeds(now: Date = Date()) -> NetworkSpeeds {
         let current = provider.interfaceSamples()
             .filter { !$0.isLoopback && $0.isActive && $0.isHardware }
