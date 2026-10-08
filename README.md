@@ -52,11 +52,12 @@ FlowBar 每 2 秒读取活跃硬件网络接口的接收与发送字节数，并
 
 可从 [GitHub Releases](https://github.com/ygchxbm/flowBar/releases) 获取已发布版本，也可以按下面的步骤构建当前源码。
 
-本文描述当前源码功能；0.1.0 的功能范围请查看对应发布说明。
+本文描述当前源码功能；已发布版本的功能范围请查看对应发布说明。
 
 ### 版本记录
 
-- [0.2.0 更新说明（草稿，尚未发布）](docs/releases/0.2.0.md)
+- [0.2.1 更新说明（草稿，尚未发布）](docs/releases/0.2.1.md)：采样稳定性、电池数值与登录项提示修复。
+- [0.2.0 更新说明](docs/releases/0.2.0.md)：上传速度与菜单栏指标切换，已发布。
 - [0.1.0 更新说明](docs/releases/0.1.0.md)：首个公开测试版本。
 
 ### 环境要求
@@ -119,8 +120,12 @@ open .build/FlowBar.app
 | `Sources/FlowBar/App` | 应用入口、菜单栏面板和登录时启动控制 |
 | `Sources/FlowBar/Network` | 活跃硬件网络接口读取与下载、上传速度计算 |
 | `Sources/FlowBar/Battery` | IOKit 电池数据读取、温度与功率解析 |
-| `Sources/FlowBar/Metrics` | 指标快照模型和显示格式化 |
+| `Sources/FlowBar/Metrics` | 后台串行采样、刷新调度、指标快照和显示格式化 |
 | `Tests/FlowBarTests` | 网络、电池、格式化与采样逻辑的单元测试 |
+
+架构、线程边界、优化依据和验证限制见 [架构与优化记录](docs/architecture.md)。GitHub Actions 会运行测试、严格并发检查及 Release 打包签名验证。
+
+旧版 [HTML 交互原型](docs/archive/flowbar-prototype.html) 已归档，仅供历史设计对照，不参与应用构建。
 
 ## 手动验证
 
@@ -132,5 +137,8 @@ open .build/FlowBar.app
 - 电池信息缺失时，仅对应字段显示 `--`。
 - 接入或拔掉电源后，供电状态会在系统数据可用时更新。
 - 切换“登录时启动”后，可在 macOS 的登录项设置中确认结果。
+- 系统要求批准登录项时，根据提示打开系统设置；切回 FlowBar 后状态更新。
+- 休眠后唤醒，网速先显示 `--`，取得下一组计数后恢复；不会混入休眠期间的平均值。
+- 按 Escape 可收起状态面板；正常刷新不会移动已打开的面板。
 
 电池信息每 2 秒读取，并在打开弹窗或收到系统电源变化通知时额外刷新。弹窗温度和功率保留一位小数，菜单栏保持整数紧凑显示；读取系统数据不会强制传感器产生新测量。
