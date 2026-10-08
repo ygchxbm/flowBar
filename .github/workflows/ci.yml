@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-package:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: swift --version
+      - name: Test
+        run: swift test
+      - name: Check concurrency boundaries
+        run: swift build -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
+      - name: Package and verify release app
+        run: bash build.sh
