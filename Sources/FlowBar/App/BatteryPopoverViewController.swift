@@ -7,11 +7,14 @@ final class BatteryPopoverViewController: NSViewController {
     private let viewModel: FlowBarPopoverViewModel
     private let hostingController: NSHostingController<FlowBarPopoverRootView>
 
-    init(launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController()) {
-        let viewModel = FlowBarPopoverViewModel(launchAtLoginController: launchAtLoginController)
+    init(launchAtLoginController: LaunchAtLoginController? = nil) {
+        let viewModel = FlowBarPopoverViewModel(launchAtLoginController: launchAtLoginController ?? LaunchAtLoginController())
         self.viewModel = viewModel
         hostingController = NSHostingController(rootView: FlowBarPopoverRootView(viewModel: viewModel))
         super.init(nibName: nil, bundle: nil)
+        viewModel.onLaunchAtLoginNotice = { [weak self] notice in
+            self?.presentLaunchAtLoginNotice(notice)
+        }
     }
 
     func configureSelection(_ metric: MenuBarMetric, onChange: @escaping (MenuBarMetric) -> Void) {
@@ -35,52 +38,35 @@ final class BatteryPopoverViewController: NSViewController {
     func update(snapshot: MetricsSnapshot) {
         viewModel.update(snapshot: snapshot)
     }
-}
 
-final class FlowBarPopoverViewModel: ObservableObject {
-    @Published var selectedMetric: MenuBarMetric = .download
-    var onMetricChange: ((MenuBarMetric) -> Void)?
-
-    func cycleMetric(by offset: Int) {
-        selectedMetric = selectedMetric.moved(by: offset)
-        onMetricChange?(selectedMetric)
+    func refreshLaunchAtLogin() {
+        viewModel.refreshLaunchAtLogin()
     }
 
-    @Published var rows: [FlowBarMetricRow] = []
-    @Published var launchAtLoginEnabled: Bool
-
-    private let launchAtLoginController: LaunchAtLoginController
-
-    init(launchAtLoginController: LaunchAtLoginController) {
-        self.launchAtLoginController = launchAtLoginController
-        launchAtLoginEnabled = launchAtLoginController.isEnabled
-        update(snapshot: .unavailable)
-    }
-
-    func update(snapshot: MetricsSnapshot) {
-        rows = MenuBarMetric.allCases.map { metric in
-            FlowBarMetricRow(symbolName: metric.symbol, title: metric.title,
-                             value: metric.detailFormatted(snapshot), tint: metric.tint)
+    private func presentLaunchAtLoginNotice(_ notice: LaunchAtLoginNotice) {
+        let alert = NSAlert()
+        switch notice {
+        case .requiresApproval:
+            alert.messageText = "请允许 FlowBar 登录时启动"
+            alert.informativeText = "请在系统设置的登录项中允许 FlowBar，然后返回应用。"
+            alert.addButton(withTitle: "打开系统设置")
+            alert.addButton(withTitle: "取消")
+        case .failed(let message):
+            alert.messageText = "无法更改登录时启动设置"
+            alert.informativeText = message
+            alert.addButton(withTitle: "好")
         }
-        launchAtLoginEnabled = launchAtLoginController.isEnabled
-    }
 
-    func setLaunchAtLoginEnabled(_ enabled: Bool) {
-        launchAtLoginController.setEnabled(enabled)
-        launchAtLoginEnabled = launchAtLoginController.isEnabled
+        let completion: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard notice == .requiresApproval, response == .alertFirstButtonReturn else { return }
+            self?.viewModel.openLoginItemSettings()
+        }
+        if let window = view.window {
+            alert.beginSheetModal(for: window, completionHandler: completion)
+        } else {
+            completion(alert.runModal())
+        }
     }
-
-    func quit() {
-        NSApp.terminate(nil)
-    }
-}
-
-struct FlowBarMetricRow: Identifiable {
-    var id: String { symbolName }
-    var symbolName: String
-    var title: String
-    var value: String
-    var tint: Color
 }
 
 private enum FlowBarPopoverLayout {
@@ -124,7 +110,9 @@ struct FlowBarPopoverRootView: View {
 
                 FlowBarMetricSelector(metric: viewModel.selectedMetric, onMove: viewModel.cycleMetric)
 
-                FlowBarLaunchCard(isEnabled: viewModel.launchAtLoginEnabled, onChange: viewModel.setLaunchAtLoginEnabled)
+                FlowBarLaunchCard(isEnabled: viewModel.launchAtLoginEnabled) { [viewModel] enabled in
+                    viewModel.setLaunchAtLoginEnabled(enabled)
+                }
 
                 FlowBarQuitCard(action: viewModel.quit)
             }
@@ -169,11 +157,7 @@ private struct FlowBarMetricCard: View {
                 }
             }
         }
-        .background(cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
-        }
+        .modifier(FlowBarCardStyle())
     }
 }
 
@@ -182,13 +166,13 @@ private struct FlowBarMetricLine: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: row.symbolName)
+            Image(systemName: row.metric.symbol)
                 .font(.system(size: 20, weight: .regular))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(row.tint.opacity(0.88))
+                .foregroundStyle(row.metric.tint.opacity(0.88))
                 .frame(width: 28)
 
-            Text(row.title)
+            Text(row.metric.title)
                 .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(Color.primary.opacity(0.78))
 
@@ -205,7 +189,7 @@ private struct FlowBarMetricLine: View {
 
 private struct FlowBarLaunchCard: View {
     var isEnabled: Bool
-    var onChange: (Bool) -> Void
+    var onChange: @MainActor @Sendable (Bool) -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -222,23 +206,20 @@ private struct FlowBarLaunchCard: View {
 
             Toggle("", isOn: Binding(get: { isEnabled }, set: onChange))
                 .labelsHidden()
+                .accessibilityLabel("登录时启动")
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .modifier(PointingHandCursor())
         }
         .frame(height: 42)
         .padding(.horizontal, 14)
-        .background(cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
-        }
+        .modifier(FlowBarCardStyle())
     }
 }
 
 private struct FlowBarQuitCard: View {
     var action: () -> Void
-    @StateObject private var hoverState = FlowBarHoverState()
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
@@ -258,38 +239,23 @@ private struct FlowBarQuitCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
-        .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(cardFill)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.red.opacity(hoverState.isHovering ? 0.08 : 0))
-                }
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
-        }
+        .modifier(FlowBarCardStyle(highlight: Color.red.opacity(isHovering ? 0.08 : 0)))
         .onHover { hovering in
-            hoverState.isHovering = hovering
+            isHovering = hovering
         }
         .modifier(PointingHandCursor())
     }
 }
 
-private final class FlowBarHoverState: ObservableObject {
-    @Published var isHovering = false
-}
-
 private struct PointingHandCursor: ViewModifier {
-    @StateObject private var state = FlowBarHoverState()
+    @State private var isHovering = false
 
     func body(content: Content) -> some View {
         content
             .onContinuousHover { phase in
                 switch phase {
                 case .active:
-                    state.isHovering = true
+                    isHovering = true
                     // Reassert during movement: the hosting view can reset the cursor.
                     NSCursor.pointingHand.set()
                 case .ended:
@@ -300,9 +266,29 @@ private struct PointingHandCursor: ViewModifier {
     }
 
     private func restoreCursor() {
-        guard state.isHovering else { return }
-        state.isHovering = false
+        guard isHovering else { return }
+        isHovering = false
         NSCursor.arrow.set()
+    }
+}
+
+private struct FlowBarCardStyle: ViewModifier {
+    var highlight: Color? = nil
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        content
+            .background {
+                shape.fill(cardFill)
+                    .overlay {
+                        if let highlight {
+                            shape.fill(highlight)
+                        }
+                    }
+            }
+            .overlay {
+                shape.stroke(Color.white.opacity(0.32), lineWidth: 0.5)
+            }
     }
 }
 
@@ -421,11 +407,7 @@ private struct FlowBarMetricSelector: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 66)
-        .background(cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
-        }
+        .modifier(FlowBarCardStyle())
     }
 
     private func arrow(_ symbol: String, label: String, offset: Int) -> some View {

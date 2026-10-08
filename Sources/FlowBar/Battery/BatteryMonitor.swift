@@ -1,5 +1,7 @@
 import Foundation
+import IOKit.ps
 
+/// Supplies raw system fields, optionally including AppleSmartBatteryPack data.
 protocol BatteryInfoProviding {
     func batteryInfo() -> [String: Any]
 }
@@ -13,21 +15,31 @@ final class BatteryMonitor {
 
     func snapshot() -> BatterySnapshot {
         let values = provider.batteryInfo()
-        guard !values.isEmpty else {
+        guard !values.isEmpty,
+              BatteryNumericValue.bool(values["BatteryInstalled"]) != false,
+              BatteryNumericValue.bool(values["Is Present"]) != false else {
             return .unavailable
         }
 
-        let temperature = temperatureCelsius(from: values)
-        let voltageMillivolts = firstIntValue(in: values, keys: ["Voltage"])
-        let amperageMilliamps = firstIntValue(in: values, keys: ["Amperage", "Current"])
+        // Select the raw alias before conversion: an invalid alias still replaces
+        // the registry key, matching the precedence of IOPS descriptions.
+        func value(_ key: String, overriddenBy alias: String) -> Any? { values[alias] ?? values[key] }
+        let voltageMillivolts = BatteryNumericValue.integer(values["Voltage"])
+        let amperageMilliamps = BatteryNumericValue.integer(value("Amperage", overriddenBy: "Current"))
         let watts = Self.watts(voltageMillivolts: voltageMillivolts, amperageMilliamps: amperageMilliamps)
-        let level = firstIntValue(in: values, keys: ["CurrentCapacity", "Current Capacity"])
-        let isCharging = firstBoolValue(in: values, keys: ["IsCharging", "Is Charging"])
-        let isFull = firstBoolValue(in: values, keys: ["IsCharged", "Is Charged", "FullyCharged"])
-        let externalConnected = firstBoolValue(in: values, keys: ["ExternalConnected", "AppleRawExternalConnected"])
+        let level = levelPercent(
+            current: value("CurrentCapacity", overriddenBy: "Current Capacity"),
+            maximum: value("MaxCapacity", overriddenBy: "Max Capacity")
+        )
+        let isCharging = BatteryNumericValue.bool(value("IsCharging", overriddenBy: "Is Charging"))
+        let isFull = BatteryNumericValue.bool(value("IsCharged", overriddenBy: "Is Charged"))
+            ?? BatteryNumericValue.bool(values["FullyCharged"])
+        let externalConnected = (values[kIOPSPowerSourceStateKey] as? String).map { $0 == kIOPSACPowerValue }
+            ?? BatteryNumericValue.bool(values["ExternalConnected"])
+            ?? BatteryNumericValue.bool(values["AppleRawExternalConnected"])
 
         return BatterySnapshot(
-            temperatureCelsius: temperature,
+            temperatureCelsius: BatteryTemperature.celsius(from: values),
             chargingWatts: watts,
             levelPercent: level,
             powerState: powerState(
@@ -40,10 +52,23 @@ final class BatteryMonitor {
     }
 
     private static func watts(voltageMillivolts: Int?, amperageMilliamps: Int?) -> Double? {
-        guard let voltageMillivolts, let amperageMilliamps else {
+        guard let voltageMillivolts, voltageMillivolts > 0, let amperageMilliamps else {
             return nil
         }
         return (Double(voltageMillivolts) / 1000.0) * (Double(amperageMilliamps) / 1000.0)
+    }
+
+    private func levelPercent(current rawCurrent: Any?, maximum rawMaximum: Any?) -> Int? {
+        guard let current = BatteryNumericValue.integer(rawCurrent),
+              current >= 0 else { return nil }
+        if let rawMaximum {
+            guard let maximum = BatteryNumericValue.integer(rawMaximum), maximum > 0 else { return nil }
+            // Registry capacity can be mAh; IOPS normally supplies current / 100 instead.
+            let percent = min(100, Double(current) / Double(maximum) * 100)
+            return Int(percent.rounded())
+        }
+        // Older providers already return a percentage without a matching maximum.
+        return current <= 100 ? current : nil
     }
 
     private func powerState(
@@ -72,8 +97,11 @@ final class BatteryMonitor {
         }
         return .unknown
     }
+}
 
-    private func temperatureCelsius(from values: [String: Any]) -> Double? {
+/// Shared with the provider only to decide whether another registry read is needed.
+enum BatteryTemperature {
+    static func primaryCelsius(from values: [String: Any]) -> Double? {
         if let normalized = BatteryNumericValue.double(values["TemperatureCelsius"]) {
             return normalized
         }
@@ -81,47 +109,16 @@ final class BatteryMonitor {
             return celsius
         }
         if let temperature = BatteryNumericValue.double(values["Temperature"]) {
-            return Self.normalizedTemperatureCelsius(temperature)
+            return abs(temperature) > 1000 ? (temperature / 10.0) - 273.15 : temperature
         }
         return nil
     }
 
-    static func normalizedTemperatureCelsius(_ temperature: Double) -> Double {
-        if abs(temperature) > 1000 {
-            return (temperature / 10.0) - 273.15
-        }
-        return temperature
-    }
-
-    private func firstIntValue(in values: [String: Any], keys: [String]) -> Int? {
-        for key in keys {
-            if let value = intValue(values[key]) {
-                return value
-            }
-        }
-        return nil
-    }
-
-    private func firstBoolValue(in values: [String: Any], keys: [String]) -> Bool? {
-        for key in keys {
-            if let value = boolValue(values[key]) {
-                return value
-            }
-        }
-        return nil
-    }
-
-    private func intValue(_ value: Any?) -> Int? {
-        if let value = value as? Int { return value }
-        if let value = value as? Int32 { return Int(value) }
-        if let value = value as? Int64 { return Int(value) }
-        if let value = value as? NSNumber { return value.intValue }
-        return nil
-    }
-
-    private func boolValue(_ value: Any?) -> Bool? {
-        if let value = value as? Bool { return value }
-        if let value = value as? NSNumber { return value.boolValue }
-        return nil
+    static func celsius(from values: [String: Any]) -> Double? {
+        if let temperature = primaryCelsius(from: values) { return temperature }
+        guard let pack = values["AppleSmartBatteryPack"] as? [String: Any],
+              let batteryData = pack["BatteryData"] as? [String: Any],
+              let temperature = BatteryNumericValue.double(batteryData["Temperature"]) else { return nil }
+        return temperature / 100.0
     }
 }

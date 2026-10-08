@@ -1,6 +1,6 @@
 import Foundation
 
-struct MetricsSnapshot: Equatable {
+struct MetricsSnapshot: Equatable, Sendable {
     var downloadBytesPerSecond: Double?
     var uploadBytesPerSecond: Double? = nil
     var battery: BatterySnapshot
@@ -11,8 +11,8 @@ struct MetricsSnapshot: Equatable {
     )
 }
 
-struct BatterySnapshot: Equatable {
-    enum PowerState: Equatable {
+struct BatterySnapshot: Equatable, Sendable {
+    enum PowerState: Equatable, Sendable {
         case charging
         case externalPower
         case discharging

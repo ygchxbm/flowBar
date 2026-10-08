@@ -1,6 +1,7 @@
 import AppKit
 
 @main
+@MainActor
 final class FlowBarApp: NSObject, NSApplicationDelegate {
     private static let sharedDelegate = FlowBarApp()
 

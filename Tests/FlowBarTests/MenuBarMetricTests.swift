@@ -23,9 +23,10 @@ final class MenuBarMetricTests: XCTestCase {
 
     func testAllMetricsFormatAndUnavailableUploadKeepsDirection() {
         let snapshot = MetricsSnapshot(downloadBytesPerSecond: 8192, uploadBytesPerSecond: 2048,
-            battery: BatterySnapshot(temperatureCelsius: 33, chargingWatts: -13, levelPercent: 55, powerState: .discharging))
+            battery: BatterySnapshot(temperatureCelsius: 33.2, chargingWatts: -13, levelPercent: 55, powerState: .discharging))
         XCTAssertEqual(MenuBarMetric.allCases.map { $0.formatted(snapshot) },
                        ["↓ 8K", "↑ 2K", "33°C", "-13W", "55%", "使用电池"])
         XCTAssertEqual(MenuBarMetric.upload.formatted(.unavailable), "↑ --")
+        XCTAssertEqual(MenuBarMetric.temperature.detailFormatted(snapshot), "33.2°C")
     }
 }

@@ -3,12 +3,20 @@ import IOKit
 import IOKit.ps
 
 final class IOKitBatteryProvider: BatteryInfoProviding {
+    private let readRegistry: (String) -> [String: Any]?
+
+    init(readRegistry: @escaping (String) -> [String: Any]? = IOKitBatteryProvider.registryProperties) {
+        self.readRegistry = readRegistry
+    }
+
     func batteryInfo() -> [String: Any] {
-        if var smartBatteryInfo = appleSmartBatteryInfo() {
-            if let smartBatteryPackInfo = appleSmartBatteryPackInfo() {
+        if var smartBatteryInfo = readRegistry("AppleSmartBattery") {
+            guard Self.isPresent(smartBatteryInfo) else { return [:] }
+            if BatteryTemperature.primaryCelsius(from: smartBatteryInfo) == nil,
+               let smartBatteryPackInfo = readRegistry("AppleSmartBatteryPack") {
                 smartBatteryInfo["AppleSmartBatteryPack"] = smartBatteryPackInfo
             }
-            return Self.normalized(smartBatteryInfo)
+            return smartBatteryInfo
         }
 
         guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
@@ -19,26 +27,18 @@ final class IOKitBatteryProvider: BatteryInfoProviding {
         for source in sources {
             guard let description = IOPSGetPowerSourceDescription(snapshot, source)?
                 .takeUnretainedValue() as? [String: Any],
-                description[kIOPSTypeKey] as? String == kIOPSInternalBatteryType else {
+                description[kIOPSTypeKey] as? String == kIOPSInternalBatteryType,
+                Self.isPresent(description) else {
                 continue
             }
-            return Self.normalized(description)
+            return description
         }
 
         return [:]
     }
 
-    private func appleSmartBatteryInfo() -> [String: Any]? {
-        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
-        return registryProperties(for: service)
-    }
-
-    private func appleSmartBatteryPackInfo() -> [String: Any]? {
-        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBatteryPack"))
-        return registryProperties(for: service)
-    }
-
-    private func registryProperties(for service: io_service_t) -> [String: Any]? {
+    private static func registryProperties(matching serviceName: String) -> [String: Any]? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(serviceName))
         guard service != 0 else {
             return nil
         }
@@ -54,32 +54,8 @@ final class IOKitBatteryProvider: BatteryInfoProviding {
         return dictionary
     }
 
-    static func normalized(_ description: [String: Any]) -> [String: Any] {
-        var values = description
-
-        if let current = description["Current"] {
-            values["Amperage"] = current
-        }
-        if let currentCapacity = description["Current Capacity"] {
-            values["CurrentCapacity"] = currentCapacity
-        }
-        if let isCharging = description["Is Charging"] {
-            values["IsCharging"] = isCharging
-        }
-        if let isCharged = description["Is Charged"] {
-            values["IsCharged"] = isCharged
-        }
-        if let powerSourceState = description[kIOPSPowerSourceStateKey] as? String {
-            values["ExternalConnected"] = powerSourceState == kIOPSACPowerValue
-        }
-        if let temperature = BatteryNumericValue.double(description["Temperature"]) {
-            values["TemperatureCelsius"] = BatteryMonitor.normalizedTemperatureCelsius(temperature)
-        } else if let pack = description["AppleSmartBatteryPack"] as? [String: Any],
-                  let batteryData = pack["BatteryData"] as? [String: Any],
-                  let temperature = BatteryNumericValue.double(batteryData["Temperature"]) {
-            values["TemperatureCelsius"] = temperature / 100.0
-        }
-
-        return values
+    private static func isPresent(_ description: [String: Any]) -> Bool {
+        BatteryNumericValue.bool(description["BatteryInstalled"]) != false
+            && BatteryNumericValue.bool(description[kIOPSIsPresentKey]) != false
     }
 }

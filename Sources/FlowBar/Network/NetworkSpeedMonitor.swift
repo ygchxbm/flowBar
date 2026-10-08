@@ -21,21 +21,33 @@ struct NetworkSpeeds {
 final class NetworkSpeedMonitor {
     private let provider: NetworkInterfaceProviding
     private var previous: [String: NetworkInterfaceSample] = [:]
-    private var previousDate: Date?
+    private var previousTimestamp: TimeInterval?
 
     init(provider: NetworkInterfaceProviding = SystemNetworkInterfaceProvider()) {
         self.provider = provider
     }
 
-    func sampleSpeeds(now: Date = Date()) -> NetworkSpeeds {
+    func reset() {
+        previous = [:]
+        previousTimestamp = nil
+    }
+
+    func sampleSpeeds(now: TimeInterval = ProcessInfo.processInfo.systemUptime) -> NetworkSpeeds {
         let current = provider.interfaceSamples()
             .filter { !$0.isLoopback && $0.isActive && $0.isHardware }
             .reduce(into: [String: NetworkInterfaceSample]()) { $0[$1.name] = $1 }
-        defer { previous = current; previousDate = now }
-        guard let previousDate, now > previousDate else {
+        guard now.isFinite else {
+            reset()
             return NetworkSpeeds(download: nil, upload: nil)
         }
-        let elapsed = now.timeIntervalSince(previousDate)
+        defer { previous = current; previousTimestamp = now }
+        guard let previousTimestamp else {
+            return NetworkSpeeds(download: nil, upload: nil)
+        }
+        let elapsed = now - previousTimestamp
+        guard elapsed.isFinite, elapsed > 0 else {
+            return NetworkSpeeds(download: nil, upload: nil)
+        }
         func rate(_ key: KeyPath<NetworkInterfaceSample, UInt64>) -> Double? {
             var delta = 0.0
             var valid = false

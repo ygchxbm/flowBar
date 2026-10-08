@@ -1,5 +1,6 @@
 import AppKit
 
+@MainActor
 final class StatusBarController: NSObject {
     private enum Layout {
         static let statusItemWidth: CGFloat = 72
@@ -7,23 +8,21 @@ final class StatusBarController: NSObject {
 
     private let selection = MenuBarSelection()
     private let statusItem: NSStatusItem
-    private let metricsSampler: MetricsSampler
+    private let metricsMonitor: MetricsMonitor
     private let popoverViewController: BatteryPopoverViewController
     private var panel: FlowBarPanel?
-    private var localEventMonitor: Any?
-    private var globalEventMonitor: Any?
-    private var timer: Timer?
+    private var localEventMonitor: EventMonitor?
+    private var globalEventMonitor: EventMonitor?
     private var powerSourceObserver: PowerSourceObserver?
     private var latestSnapshot: MetricsSnapshot = .unavailable
 
     init(metricsSampler: MetricsSampler = MetricsSampler()) {
-        self.metricsSampler = metricsSampler
+        metricsMonitor = MetricsMonitor(sampler: metricsSampler)
         statusItem = NSStatusBar.system.statusItem(withLength: Layout.statusItemWidth)
 
         popoverViewController = BatteryPopoverViewController()
         super.init()
 
-        statusItem.button?.title = "↓ --"
         statusItem.button?.alignment = .center
         statusItem.button?.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         statusItem.button?.target = self
@@ -35,19 +34,22 @@ final class StatusBarController: NSObject {
             self.updateStatusItem()
         }
         powerSourceObserver = PowerSourceObserver { [weak self] in
-            self?.refreshBattery()
+            self?.metricsMonitor.refreshBattery()
         }
-        refresh()
-        let samplingTimer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
-            self?.refresh()
+        metricsMonitor.onUpdate = { [weak self] snapshot in
+            self?.apply(snapshot)
         }
-        timer = samplingTimer
-        RunLoop.main.add(samplingTimer, forMode: .common)
+        let workspaceNotifications = NSWorkspace.shared.notificationCenter
+        workspaceNotifications.addObserver(self, selector: #selector(willSleep), name: NSWorkspace.willSleepNotification, object: nil)
+        workspaceNotifications.addObserver(self, selector: #selector(didWake), name: NSWorkspace.didWakeNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(didBecomeActive), name: NSApplication.didBecomeActiveNotification, object: nil)
+        updateStatusItem()
+        metricsMonitor.start()
     }
 
     deinit {
-        timer?.invalidate()
-        removeEventMonitors()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
     }
 
     @objc private func togglePanel(_ sender: Any?) {
@@ -58,32 +60,44 @@ final class StatusBarController: NSObject {
         }
 
         guard let button = statusItem.button else { return }
-        refreshBattery()
+        popoverViewController.update(snapshot: latestSnapshot)
+        popoverViewController.refreshLaunchAtLogin()
+        metricsMonitor.refreshBattery()
         showPanel(relativeTo: button)
     }
 
-    private func refreshBattery() {
-        latestSnapshot = metricsSampler.refreshingBattery(in: latestSnapshot)
-        updateStatusItem()
-        popoverViewController.update(snapshot: latestSnapshot)
+    @objc private func willSleep() {
+        metricsMonitor.stop()
+        closePanel()
+        apply(.unavailable)
     }
 
-    private func refresh() {
-        latestSnapshot = metricsSampler.snapshot()
+    @objc private func didWake() {
+        metricsMonitor.start()
+    }
+
+    @objc private func didBecomeActive() {
+        if panel?.isVisible == true { popoverViewController.refreshLaunchAtLogin() }
+    }
+
+    private func apply(_ snapshot: MetricsSnapshot) {
+        guard latestSnapshot != snapshot else { return }
+        latestSnapshot = snapshot
         updateStatusItem()
-        popoverViewController.update(snapshot: latestSnapshot)
+        if panel?.isVisible == true { popoverViewController.update(snapshot: snapshot) }
     }
 
     private func updateStatusItem() {
         let text = selection.metric.formatted(latestSnapshot)
-        statusItem.button?.title = text
-        statusItem.button?.toolTip = selection.metric.title
-        statusItem.button?.setAccessibilityLabel(selection.metric.title + " " + text)
         if let button = statusItem.button {
+            button.toolTip = selection.metric.title
+            button.setAccessibilityLabel(selection.metric.title + " " + text)
+            guard button.title != text else { return }
+            button.title = text
             let font = button.font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize)
-            statusItem.length = max(Layout.statusItemWidth, ceil((text as NSString).size(withAttributes: [.font: font]).width) + 16)
-            if panel?.isVisible == true {
-                panel?.setFrame(panelFrame(relativeTo: button), display: true)
+            let width = max(Layout.statusItemWidth, ceil((text as NSString).size(withAttributes: [.font: font]).width) + 16)
+            if statusItem.length != width {
+                statusItem.length = width
             }
         }
     }
@@ -112,6 +126,7 @@ final class StatusBarController: NSObject {
         panel.level = .statusBar
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.transient, .fullScreenAuxiliary]
+        panel.onCancel = { [weak self] in self?.closePanel() }
         return panel
     }
 
@@ -132,6 +147,7 @@ final class StatusBarController: NSObject {
     }
 
     private func closePanel() {
+        guard panel?.attachedSheet == nil else { return }
         panel?.orderOut(nil)
         statusItem.button?.highlight(false)
         removeEventMonitors()
@@ -142,10 +158,10 @@ final class StatusBarController: NSObject {
         localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             self?.closePanelIfNeeded()
             return event
-        }
+        }.map(EventMonitor.init)
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.closePanel()
-        }
+        }.map(EventMonitor.init)
     }
 
     private func closePanelIfNeeded() {
@@ -165,18 +181,21 @@ final class StatusBarController: NSObject {
     }
 
     private func removeEventMonitors() {
-        if let localEventMonitor {
-            NSEvent.removeMonitor(localEventMonitor)
-            self.localEventMonitor = nil
-        }
-        if let globalEventMonitor {
-            NSEvent.removeMonitor(globalEventMonitor)
-            self.globalEventMonitor = nil
-        }
+        localEventMonitor = nil
+        globalEventMonitor = nil
     }
 }
 
+private final class EventMonitor {
+    private let token: Any
+
+    init(_ token: Any) { self.token = token }
+    deinit { NSEvent.removeMonitor(token) }
+}
+
 private final class FlowBarPanel: NSPanel {
+    var onCancel: (() -> Void)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    override func cancelOperation(_ sender: Any?) { onCancel?() }
 }

@@ -8,7 +8,7 @@ enum MetricFormatters {
 
         let kib = 1024.0
 
-        let roundedKib = Int((bytesPerSecond / kib).rounded())
+        guard let roundedKib = roundedInteger(bytesPerSecond / kib) else { return "↓ --" }
         if roundedKib >= 1024 * 1024 {
             return "↓ \(oneDecimal(Double(roundedKib) / (1024 * 1024)))G"
         }
@@ -23,13 +23,12 @@ enum MetricFormatters {
     }
 
     static func temperature(_ celsius: Double?) -> String {
-        guard let celsius, celsius.isFinite else { return "--" }
-        return "\(Int(celsius.rounded()))°C"
+        guard let celsius, let rounded = roundedInteger(celsius) else { return "--" }
+        return "\(rounded)°C"
     }
 
     static func chargingPower(_ watts: Double?) -> String {
-        guard let watts, watts.isFinite else { return "--" }
-        let rounded = Int(watts.rounded())
+        guard let watts, let rounded = roundedInteger(watts) else { return "--" }
         if rounded > 0 { return "+\(rounded)W" }
         if rounded < 0 { return "\(rounded)W" }
         return "0W"
@@ -65,9 +64,14 @@ enum MetricFormatters {
 
     private static func oneDecimal(_ value: Double) -> String {
         let rounded = (value * 10).rounded() / 10
-        if rounded == floor(rounded) {
-            return String(Int(rounded))
+        if let integer = Int(exactly: rounded) {
+            return String(integer)
         }
         return String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), rounded)
+    }
+
+    private static func roundedInteger(_ value: Double) -> Int? {
+        guard value.isFinite else { return nil }
+        return Int(exactly: value.rounded())
     }
 }

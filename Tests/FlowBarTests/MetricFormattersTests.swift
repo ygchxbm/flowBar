@@ -2,6 +2,15 @@ import XCTest
 @testable import FlowBar
 
 final class MetricFormattersTests: XCTestCase {
+    func testFiniteOutOfRangeNumbersCannotTrapIntegerConversion() {
+        XCTAssertEqual(MetricFormatters.temperature(.greatestFiniteMagnitude), "--")
+        XCTAssertEqual(MetricFormatters.chargingPower(-Double.greatestFiniteMagnitude), "--")
+        XCTAssertEqual(MetricFormatters.temperature(Double(Int.max)), "--")
+        XCTAssertEqual(MetricFormatters.chargingPower(Double(Int.max)), "--")
+        XCTAssertEqual(MetricFormatters.downloadSpeed(.greatestFiniteMagnitude), "↓ --")
+        XCTAssertEqual(MetricFormatters.uploadSpeed(.greatestFiniteMagnitude), "↑ --")
+    }
+
     func testDetailedBatteryValues() {
         XCTAssertEqual(MetricFormatters.detailedTemperature(33.24), "33.2°C")
         XCTAssertEqual(MetricFormatters.detailedTemperature(33), "33.0°C")
